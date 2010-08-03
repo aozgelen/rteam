@@ -14,6 +14,7 @@
 #include <queue>
 #include <list>
 #include <sstream>
+#include <fstream>
 using namespace std;
 
 #include <stdio.h>
@@ -39,10 +40,21 @@ using namespace std;
 #define VERSION "1.0"
 #define MAX_THREADS 10
 #define MAX_BUFFER  1024
+
+// SIMULATE spawns a phantom user for testing purposes
+#define SIMULATE
  
 const char server_title[] = "SkyGrid " VERSION;
 
 typedef int (*function_ptr)(char *, robot *);
+
+struct thread_args{
+  bool interactive;
+  bool log_enabled;
+  char logfile[32];
+  char ip[16];
+  int port;
+};
 
 // some global variables...
 commServer *comm = NULL;
@@ -55,20 +67,71 @@ int num_threads = 0;
 pthread_mutex_t paint_mutex;
 queue<string> painter_queue;
 
-
+// NCURSES global window declarations
 WINDOW *title_bar;
 WINDOW *output;
 WINDOW *status_bar;
 WINDOW *filter_menu;
 
 
-void push_paint(string msg){
+// display_usage: Displays the program usage
+// Parameters:
+// name - name of running process
+void display_usage(char *name){
+  cerr << name << " [-i] [-l logfile] [-b ip address] [-p port]" << endl;
+  exit(1);
+}
+
+// construct_msg: Constructs strings into standard format
+// Parameters:
+//
+string construct_msg(string type, string message, long robot_id){
+  time_t rawtime;
+  struct tm *tm;
+  time ( &rawtime );
+  tm = localtime ( &rawtime );
+  ostringstream buffer;
+  char time_buffer[] = "00:00:00";
+  string tmp;
+
+  snprintf(time_buffer, sizeof(time_buffer),
+          "%02d:%02d:%02d", tm->tm_hour, tm->tm_min, tm->tm_sec);
+
+  buffer << time_buffer << " ";
+
+  buffer << "[ " << type << " ]" << " ";
+  buffer << message << " ";
+
+  if(type == "SENT"){
+    buffer << "[ TO ]" << " ";
+  }else if(type == "RECIEVED"){
+    buffer << "[ BY ]" << " ";
+  }else if(type == "PUSHED"){
+    buffer << "[ ONTO ]" << " ";
+  }else if(type == "POPPED"){
+    buffer << "[ OFF ]" << " ";
+  }else{
+    buffer << "[ ERROR ]" << " ";
+  }
+
+  // Find robot name and get
+
+  buffer << "ELGUI" << " ";
+  buffer << "192924812414";
+
+  return buffer.str();
+
+}
+
+void push_paint(string type, string message, long robot_id){
+  string msg = construct_msg(type, message, robot_id);
+
   pthread_mutex_lock( &paint_mutex );
 
   if(!msg.empty()){
     painter_queue.push( msg );
   }else{
-    cout << "Got empty string" << endl;
+    //cout << "Got empty string" << endl;
   }
 
   pthread_mutex_unlock( &paint_mutex );
@@ -92,7 +155,7 @@ const string pop_paint(){
   return( msg );
 }
 
-bool is_paint_empty() {                                                       
+bool paint_empty() {                                                       
   bool empty = false;
 
   pthread_mutex_lock( &paint_mutex );
@@ -124,44 +187,6 @@ void print_error(WINDOW *win, string err_msg){
     wprintw(win, " %s\n", err_msg.c_str());
 
     // call general msg colorer
-}
-
-string construct_msg(string type, string message, long robot_id){
-  time_t rawtime;
-  struct tm *tm;
-  time ( &rawtime );
-  tm = localtime ( &rawtime );
-  ostringstream buffer;
-  char time_buffer[] = "00:00:00";
-  string tmp;
-
-  snprintf(time_buffer, sizeof(time_buffer),
-          "%02d:%02d:%02d", tm->tm_hour, tm->tm_min, tm->tm_sec);
-
-  buffer << time_buffer << " ";
-
-  buffer << "[ " << type << " ]" << " ";
-  buffer << message << " ";
-
-  if(type == "SENT"){
-    buffer << "[ TO ]" << " ";
-  }else if(type == "RECIEVED"){
-    buffer << "[ FROM ]" << " ";
-  }else if(type == "PUSHED"){
-    buffer << "[ ONTO ]" << " ";
-  }else if(type == "POPPED"){
-    buffer << "[ OFF ]" << " ";
-  }else{
-    buffer << "[ ERROR ]" << " ";
-  }
-
-  // Find robot name and get
-
-  buffer << "ELGUI" << " ";
-  buffer << "192924812414";
-
-  return buffer.str();
-
 }
 
 void color_msg(WINDOW *win, string message){
@@ -267,20 +292,28 @@ bool find_robot( int session_id, list<robot_p>::iterator& iter ) {
 } // end of find_robot()
 
 
-bool send_or_push( char *msgbuf, robot *myrobot, int recipient_id ) {
+bool send_or_push( char *msgbuf, robot *myrobot, long recipient_id ) {
   unsigned char len = strlen(msgbuf);
   string p(msgbuf);
   list<robot_p>::iterator bot;
+
   if (find_robot( recipient_id, bot )) {
       if(recipient_id != myrobot->get_session_id()){
         (*bot)->push_msg(p);
+	push_paint("PUSHED", p, recipient_id);
       }else{
        if(comm->send_msg( myrobot->get_sock(), len, msgbuf) == -1){
-        cerr << "**error> failed to send message" << endl;
+        //cerr << "**error> failed to send message" << endl;
+        push_paint("ERROR", "failed to send message", myrobot->get_session_id());
         return false;
+       }else{
+	push_paint("SENT", p, recipient_id);
        }
       }
+  }else{
+    // Robot not found
   }
+
   return true;
 }
 
@@ -296,7 +329,9 @@ int init_client( char *msgbuf, robot *myrobot) {
   char *ptr = NULL;
 
   if (( comm->read_msg( myrobot->get_sock(), len, &ptr ) == -1 ) || (ptr == NULL)) {
-    cout << "**error> reading message in client_handler" << endl;
+    //cout << "**error> reading message in client_handler" << endl;
+    push_paint("ERROR", "reading message in client_handler",
+	    myrobot->get_session_id());
     return STATE_QUIT;
   }
   else {
@@ -305,7 +340,7 @@ int init_client( char *msgbuf, robot *myrobot) {
 
   string p(ptr);
   stringstream istream(p);
-  cout << "INIT Got string: " << p << endl;
+  //cout << "INIT Got string: " << p << endl;
 
   istream >> command;
   if(command != "INIT"){
@@ -319,11 +354,11 @@ int init_client( char *msgbuf, robot *myrobot) {
       }
   }
 
-  cout << "Command: " << command << endl;
-  cout << "Type: " << type << endl;
-  cout << "Name: " << name << endl;
-  cout << "Num of Provides: " << num_provides << endl;
-  cout << "Provides: " << provides << endl;
+  //cout << "Command: " << command << endl;
+  //cout << "Type: " << type << endl;
+  //cout << "Name: " << name << endl;
+  //cout << "Num of Provides: " << num_provides << endl;
+  //cout << "Provides: " << provides << endl;
 
   myrobot->set_type_id(type.c_str());
   myrobot->set_name(name.c_str());
@@ -353,7 +388,9 @@ int ack_client( char *msgbuf, robot *myrobot) {
   strncpy(msgbuf, ack.c_str(), len);
 
   if (( comm->send_msg( myrobot->get_sock(), len, msgbuf ) == -1 )) {
-    cout << "**error> reading message in client_handler" << endl;
+    //cout << "**error> reading message in client_handler" << endl;
+    push_paint("ERROR", "reading message in client_handler",
+	    myrobot->get_session_id());
     return STATE_QUIT;
   }
 
@@ -366,9 +403,6 @@ int client_idle( char *msgbuf, robot *myrobot) {
   int ret = 0;
   timeval timeout;
   fd_set rset;
-
-
-  long session_id = myrobot->get_session_id();
 
   for(;;){
       if ( !myrobot->msg_empty()){
@@ -392,7 +426,10 @@ int client_idle( char *msgbuf, robot *myrobot) {
       }
   }
 
-  cout << "ERROR!" << endl;
+  //cout << "ERROR!" << endl;
+  push_paint("ERROR", "client_idle: should have not reached here",
+	  myrobot->get_session_id());
+
   return STATE_ERROR;
 }
 
@@ -403,14 +440,18 @@ int proc_cmd( char *msgbuf, robot *myrobot) {
   char *ptr = NULL;
 
   if(que_msg != ""){
-    cout << "Got from Que" << endl;
+    //cout << "Got from Que" << endl;
+    push_paint("POPPED", que_msg.c_str(), myrobot->get_session_id());
     strcpy( msgbuf, que_msg.c_str() );
   }
   else if (( comm->read_msg( myrobot->get_sock(), len, &ptr ) == -1 ) || (ptr == NULL)) {
-    cout << "**error> reading message in client_handler" << endl;
+    //cout << "**error> reading message in client_handler" << endl;
+    push_paint("ERROR", "reading message in client_handler",
+	    myrobot->get_session_id());
     return STATE_QUIT;
   }
   else{
+    push_paint("RECIEVED", ptr, myrobot->get_session_id());
     strcpy( msgbuf,ptr );
   }
 
@@ -420,12 +461,12 @@ int proc_cmd( char *msgbuf, robot *myrobot) {
 
   string p(msgbuf);
   stringstream istream(p);
-  cout << "PROC Got string: " << p << endl;
+  //cout << "PROC Got string: " << p << endl;
 
   istream >> command;
   
   if(command == CMD_PING){
-    cout << "Calling pong state";
+    //cout << "Calling pong state";
     return STATE_PONG;
 
   }else if(command == CMD_PONG){
@@ -463,7 +504,9 @@ int proc_cmd( char *msgbuf, robot *myrobot) {
   }
 
   // should not reach here
-  cout << "Should not of reached this!" << endl;
+  //cout << "Should not of reached this!" << endl;
+  push_paint("ERROR", "proc_cmd: should have not reached here",
+	  myrobot->get_session_id());
   return STATE_ERROR;
 }
 
@@ -475,7 +518,7 @@ int client_ping( char *msgbuf, robot *myrobot) {
 }
 
 int client_pong( char *msgbuf, robot *myrobot) {
-  cout << "In PONG" << endl;
+  //cout << "In PONG" << endl;
 
   unsigned char len;
   string pong = CMD_PONG;
@@ -484,7 +527,9 @@ int client_pong( char *msgbuf, robot *myrobot) {
   strncpy(msgbuf, pong.c_str(), len);
 
   if (( comm->send_msg( myrobot->get_sock(), len, msgbuf ) == -1 )) {
-    cout << "**error> reading message in client_handler" << endl;
+    //cout << "**error> reading message in client_handler" << endl;
+    push_paint("ERROR", "reading message in client_handler",
+	    myrobot->get_session_id());
     return STATE_QUIT;
   }
 
@@ -497,8 +542,8 @@ int client_lock( char *msgbuf, robot *myrobot) {
   stringstream istream(p);
   string command;
   long session_id;
-  unsigned char len = strlen(msgbuf);
-  cout << "Read lock command: " << p << endl;
+
+  //cout << "Read lock command: " << p << endl;
   istream >> command >> session_id;
 
   if (send_or_push(msgbuf, myrobot, session_id)) {
@@ -513,8 +558,7 @@ int client_unlock( char *msgbuf, robot *myrobot) {
   stringstream istream(p);
   string command;
   long session_id;
-  unsigned char len = strlen(msgbuf);
-  cout << "Read lock command: " << p << endl;
+
   istream >> command >> session_id;
 
   if (send_or_push(msgbuf, myrobot, session_id)) {
@@ -531,7 +575,7 @@ int client_ident( char *msgbuf, robot *myrobot) {
   stringstream convert;
   unsigned char len;
 
-  cout << "In IDENT" << endl;
+  //cout << "In IDENT" << endl;
 
   pthread_mutex_lock( &robots_mutex );
   msg += " ";
@@ -553,7 +597,7 @@ int client_ident( char *msgbuf, robot *myrobot) {
 	    convert << (*i)->get_num_of_provides();
 	    msg += convert.str();
 	    vector<string> provides = (*i)->get_provides();
-	    for (int i = 0; i < provides.size(); ++i) {
+	    for (unsigned int i = 0; i < provides.size(); ++i) {
 	    	msg += " " + provides[i];
 	    }
     }
@@ -561,13 +605,15 @@ int client_ident( char *msgbuf, robot *myrobot) {
   pthread_mutex_unlock( &robots_mutex );
 
   len = strlen(msg.c_str());
-  cout << "Size is: " << (int) len << endl;
-  cout << "Msg is: " << msg << endl;
+  //cout << "Size is: " << (int) len << endl;
+  //cout << "Msg is: " << msg << endl;
   strncpy(msgbuf, msg.c_str(), len);
 
 
   if (( comm->send_msg( myrobot->get_sock(), len, msgbuf ) == -1 )) {
-    cout << "**error> reading message in client_handler" << endl;
+    //cout << "**error> reading message in client_handler" << endl;
+    push_paint("ERROR", "reading message in client_handler",
+	    myrobot->get_session_id());
     return STATE_QUIT;
   }
 
@@ -576,17 +622,15 @@ int client_ident( char *msgbuf, robot *myrobot) {
 }
 
 int client_move( char *msgbuf, robot *myrobot) {
-  int bot_location;
   string command;
   long session_id = -1;
   string p(msgbuf);
   stringstream istream(p);
-  cout << "Read move command: " << p << endl;
 
   istream >> command >> session_id;
 
   if(command != CMD_MOVE){
-    cout << "This aint move!!!" << endl;
+    //cout << "This aint move!!!" << endl;
     return STATE_IDLE;
   }
   if (send_or_push(msgbuf, myrobot, session_id)) {
@@ -598,7 +642,9 @@ int client_move( char *msgbuf, robot *myrobot) {
 
 int client_error( char *msgbuf, robot *myrobot) {
 
-  cout << "Got error, quitting" << endl;
+  //cout << "Got error, quitting" << endl;
+    push_paint("ERROR", "got error quitting ...",
+	    myrobot->get_session_id());
 
   return STATE_QUIT;
 }
@@ -612,7 +658,7 @@ int client_send_pose( char *msgbuf, robot *myrobot) {
   pose *temp = 0;
   unsigned char len = 0;
 
-  cout << "Read global ask pose command: " << p << endl;
+  //cout << "Read global ask pose command: " << p << endl;
 
   istream >> command >> session_id;
 
@@ -660,11 +706,13 @@ int client_send_pose( char *msgbuf, robot *myrobot) {
       oss << "0";
   }
 
-  cerr << "**sending> " << oss.str() << endl;
+  //cerr << "**sending> " << oss.str() << endl;
   strncpy( msgbuf, oss.str().c_str(), MAX_BUFFER-1 );
   len = strlen(msgbuf);
   if(comm->send_msg( myrobot->get_sock(), len, msgbuf) == -1){
-      cerr << "**error> failed to send message" << endl;
+      //cerr << "**error> failed to send message" << endl;
+    push_paint("ERROR", "failed to send message",
+	    myrobot->get_session_id());
       return STATE_QUIT;
   }
 
@@ -676,8 +724,8 @@ int client_ask_pose( char *msgbuf, robot *myrobot) {
   stringstream istream(p);
   string command;
   long session_id;
-  unsigned char len = strlen(msgbuf);
-  cout << "Read ask pose command: " << p << endl;
+  
+  //cout << "Read ask pose command: " << p << endl;
   istream >> command >> session_id;
 
   if(myrobot->get_type_id() != "gui"){
@@ -721,7 +769,7 @@ int client_ask_player( char *msgbuf, robot *myrobot) {
   string command;
   long session_id;
   unsigned char len = strlen(msgbuf);
-  cout << "Read ASK player command: " << p << endl;
+  //cout << "Read ASK player command: " << p << endl;
   istream >> command >> session_id;
   ostringstream oss;
 
@@ -737,18 +785,23 @@ int client_ask_player( char *msgbuf, robot *myrobot) {
       oss.str("");
       oss << myrobot->get_session_id();
       cmd += oss.str();
-      cout << "Pusing PLAYER CMD: " << cmd << endl;
+      //cout << "Pusing PLAYER CMD: " << cmd << endl;
       (*bot)->push_msg(cmd.c_str());
     }else{
       len = strlen(msgbuf);
       if(comm->send_msg( myrobot->get_sock(), len, msgbuf) == -1){
-	  cerr << "**error> failed to send message" << endl;
+	push_paint("ERROR", "failed to send message",
+		myrobot->get_session_id());
+	  //cerr << "**error> failed to send message" << endl;
 	  return STATE_QUIT;
       }
 
     }
   }else{
-    cout << "ASKPOSE: Robot not found" << endl;
+    //cout << "ASKPOSE: Robot not found" << endl;
+    // shoud appened robot_id
+    push_paint("ERROR", "client_ask_player: robot not found",
+	    myrobot->get_session_id());
   }
 
   return STATE_IDLE;
@@ -774,10 +827,12 @@ int client_get_player( char *msgbuf, robot *myrobot) {
       (*bot)->push_msg(p);
     }else{
       len = strlen(msgbuf);
-      cout << "Sending off player info to GUI: " << myrobot->get_session_id() << endl;
+      //cout << "Sending off player info to GUI: " << myrobot->get_session_id() << endl;
 
       if(comm->send_msg( myrobot->get_sock(), len, msgbuf) == -1){
-	      cerr << "**error> failed to send message" << endl;
+	push_paint("ERROR", "failed to send message",
+		myrobot->get_session_id());
+	//      cerr << "**error> failed to send message" << endl;
 	      return STATE_QUIT;
       }
 
@@ -785,7 +840,9 @@ int client_get_player( char *msgbuf, robot *myrobot) {
 
     }
 
-    cout << "Robot not found" << endl;
+    push_paint("ERROR", "client_ask_player: robot not found",
+	    myrobot->get_session_id());
+    //cout << "Robot not found" << endl;
   }
 
   return STATE_IDLE;
@@ -821,6 +878,45 @@ void *posebeat( void *arg ) {
   }
 }
 
+void *pencil( void *arg ) {
+  string buffer;
+  ofstream log;
+  thread_args *t_args = (thread_args *)arg;
+
+  if(t_args->log_enabled){
+    log.open(t_args->logfile);
+  }
+
+  for(;;){
+    if(paint_empty())
+      continue;
+
+    buffer = pop_paint();
+
+    cout << buffer << endl;
+
+    if(t_args->log_enabled){
+      log << buffer << endl;
+    }
+
+    napms(250);
+  }
+
+}
+
+void *pushy( void *arg ) {
+  int rnd;
+  string types[] = { "ERROR", "SENT", "RECIEVED", "POPPED", "PUSHED" };
+  long ids[] = { 11290808, 12990123, 9812381,
+    1239823, 23432434 };
+
+  for(;;){
+    rnd = rand() % 5;
+    push_paint(types[rnd].c_str(), "POSE 1233442214 0 0 0 0",  ids[rnd]);
+    sleep(1 + rand() % 3);
+  }
+}
+
 /**
  * paintbrush()
  *
@@ -835,8 +931,13 @@ void *paintbrush( void *arg ) {
   bool paused = false;
   bool filter_visible = false;
   string buffer;
-  int tmp = 0;
   int center;
+  ofstream log;
+  thread_args *t_args = (thread_args *)arg;
+
+  if(t_args->log_enabled){
+    log.open(t_args->logfile);
+  }
 
   char paused_msg[] = "[ PAUSED ]";
 
@@ -857,29 +958,12 @@ void *paintbrush( void *arg ) {
     time ( &rawtime );
     tm = localtime ( &rawtime );
 
-    buffer = construct_msg("SENT", "POSE 1233442214 0 0 0 0",  1233442211);
-    
     werase(status_bar);
     wprintw(status_bar, "[ %02d:%02d:%02d ]",
 	  tm->tm_hour, tm->tm_min, tm->tm_sec);
     wprintw(status_bar, "%10s %d", " Clients Connected:", num_threads);
-    wprintw(status_bar, "%45s ",
-	    " SERVER IP: 192.168.1.10 SERVER PORT: 6667");
-    
-    if(tmp > 0x00000fff){
-	tmp  = 0;
-
-	if(regexec(&regx, buffer.c_str(), 0, 0, 0) == 0)
-              color_msg(output, buffer);
-	
-    }else{
-      ++tmp;
-    }
-
-    wnoutrefresh(status_bar);
-    touchwin(status_bar);
-    touchwin(title_bar);
-    touchwin(filter_menu);
+    wprintw(status_bar, "%15s %s %s %d",
+	    " SERVER IP:", t_args->ip, "SERVER PORT:", t_args->port);
 
     ch = getch();
 
@@ -906,7 +990,9 @@ void *paintbrush( void *arg ) {
               waddch(filter_menu, ' ');
               input_buffer[current_pos] = '\0';
               --current_pos;
-          }
+          }else{
+	    flash();
+	  }
         }else if(ch != ERR){
           if(current_pos < input_size){
               wmove(filter_menu, 1, 10 + current_pos);
@@ -947,6 +1033,10 @@ void *paintbrush( void *arg ) {
           }
       }
     
+    wnoutrefresh(status_bar);
+    touchwin(status_bar);
+    touchwin(title_bar);
+    touchwin(filter_menu);
 
     if(!paused){
       wnoutrefresh(output);
@@ -961,20 +1051,24 @@ void *paintbrush( void *arg ) {
 
     doupdate();
 
+    if(paint_empty())
+      continue;
+
+    buffer = pop_paint();
+
+    if(t_args->log_enabled){
+      log << buffer << endl;
+    }
+    
+    if(regexec(&regx, buffer.c_str(), 0, 0, 0) == 0){
+	  color_msg(output, buffer);
+    }
+
   }
 
 
 } // end of paintbrush()
 
-
-
-void *keyscan( void *arg ) {
-
-  for(;;){
-    napms(500);
-  }
-
-}
 
 
 /**
@@ -1009,14 +1103,10 @@ void *client_handler( void *arg ) {
 
   robot *myrobot = (robot *)arg;
   int state;
-  char tmp[25], *p, *cmd;
   char *msgbuf = (char *)malloc( MAX_BUFFER*sizeof(char) );
   char *pmsg   = (char *)malloc( MAX_BUFFER*sizeof(char) );
   char *pargs  = (char *)malloc( MAX_BUFFER*sizeof(char) );
   string msg;
-  long robot_id;
-  int i, dir, dur;
-  int msg_num = 0;
 
   int command = -1;
 
@@ -1075,7 +1165,8 @@ void *client_handler( void *arg ) {
 	    command = STATE_MOVE;
 	    break;
 	default:
-	    cout << "State was: " << state << endl;
+	    //cout << "State was: " << state << endl;
+	    push_paint("ERROR", "Invalid State", myrobot->get_session_id());
 	    command = STATE_ERROR;
 	    break;
     }
@@ -1117,10 +1208,58 @@ void *client_handler( void *arg ) {
  */
 int main( int argc, char *argv[] ) {
   int ssock, csock;
-  pid_t pid;
-  pthread_t thread_id0, thread_id1, thread_id2, thread_id[MAX_THREADS]; // array of thread id's
+  pthread_t thread_id_x, thread_id0, thread_id1, thread_id[MAX_THREADS]; // array of thread id's
   struct sockaddr_in sin;
   socklen_t slen = sizeof( sin );
+
+  int x, y;
+  int center;
+  int ch;
+
+  thread_args *t_args = new thread_args;
+
+  bool ip_given = false;
+  bool port_given = false;
+  t_args->log_enabled = false;
+
+  if(argc < 2)
+    display_usage(argv[0]);
+
+  while ((ch = getopt (argc, argv, "il:b:p:")) != -1){
+    switch(ch){
+	case 'i':
+		t_args->interactive = true;
+		break;
+	    case 'l':
+		strncpy(t_args->logfile, optarg, sizeof(t_args->logfile));
+		t_args->log_enabled = true;
+		break;
+	    case 'b':
+		strncpy(t_args->ip, optarg, sizeof(t_args->ip));
+		ip_given = true;
+		break;
+	    case 'p':
+		t_args->port = atoi(optarg);
+		port_given = true;
+		break;
+	    default:
+		display_usage(argv[0]);
+		exit(1);
+		break;
+    }
+  }
+
+  if(t_args->ip[0] == '\0'){
+    cerr << "error: ip address required" << endl;
+    display_usage(argv[0]);
+  }else if(t_args->port < 0){
+    cerr << "error: port required" << endl;
+    display_usage(argv[0]);
+  }
+
+
+  // initialize list of robots
+  robots.clear();
 
   function_array[STATE_INIT] = &init_client;
   function_array[STATE_ACK] = &ack_client;
@@ -1137,75 +1276,85 @@ int main( int argc, char *argv[] ) {
   function_array[STATE_GET_POSE] = &client_get_pose;
   function_array[STATE_ASK_PLAYER] = &client_ask_player;
   function_array[STATE_GET_PLAYER] = &client_get_player;
-
-  // initialize list of robots
-  robots.clear();
-
-  // NCURSES setup
-  int x, y;
-  int center;
   
-  initscr();
-  start_color();
+  // NCURSES setup
+  if(t_args->interactive){
+      initscr();
+      start_color();
 
-  getmaxyx(stdscr, y, x); 
+      getmaxyx(stdscr, y, x); 
 
-  center = x - sizeof(server_title);
-  center = center / 2;
+      center = x - sizeof(server_title);
+      center = center / 2;
 
-  title_bar = newwin(1, x, 0, 0); 
-  output = newwin(y - 1, x, 2, 0); 
-  status_bar = newwin(1, x, y - 1, 0); 
-  filter_menu =
-      newwin(3, x - x / 4 , (y - 3) / 2, ( x - (x - x / 4)) / 2 );
+      title_bar = newwin(1, x, 0, 0); 
+      output = newwin(y - 1, x, 2, 0); 
+      status_bar = newwin(1, x, y - 1, 0); 
+      filter_menu =
+	  newwin(3, x - x / 4 , (y - 3) / 2, ( x - (x - x / 4)) / 2 );
 
-  init_pair(1, COLOR_BLACK, COLOR_WHITE);
-  init_pair(2, COLOR_GREEN, COLOR_BLACK);
-  init_pair(3, COLOR_BLACK, COLOR_RED);
-  init_pair(4, COLOR_CYAN, COLOR_BLACK);
-  init_pair(5, COLOR_MAGENTA, COLOR_BLACK);
-  init_pair(6, COLOR_WHITE, COLOR_BLACK);
-  init_pair(7, COLOR_YELLOW, COLOR_BLACK);
-  init_pair(8, COLOR_WHITE, COLOR_BLACK);
-  init_pair(9, COLOR_RED, COLOR_BLACK);
-  init_pair(10, COLOR_BLUE, COLOR_BLACK);
-  init_pair(11, COLOR_WHITE, COLOR_BLUE);
+      init_pair(1, COLOR_BLACK, COLOR_WHITE);
+      init_pair(2, COLOR_GREEN, COLOR_BLACK);
+      init_pair(3, COLOR_BLACK, COLOR_RED);
+      init_pair(4, COLOR_CYAN, COLOR_BLACK);
+      init_pair(5, COLOR_MAGENTA, COLOR_BLACK);
+      init_pair(6, COLOR_WHITE, COLOR_BLACK);
+      init_pair(7, COLOR_YELLOW, COLOR_BLACK);
+      init_pair(8, COLOR_WHITE, COLOR_BLACK);
+      init_pair(9, COLOR_RED, COLOR_BLACK);
+      init_pair(10, COLOR_BLUE, COLOR_BLACK);
+      init_pair(11, COLOR_WHITE, COLOR_BLUE);
 
-  scrollok(output, TRUE);
-  nodelay(output, TRUE);
-  noecho();
-  nodelay(stdscr, TRUE);
+      scrollok(output, TRUE);
+      nodelay(output, TRUE);
+      noecho();
+      nodelay(stdscr, TRUE);
+      curs_set(0);
 
-  wbkgd(title_bar, COLOR_PAIR(11) | A_BOLD | A_DIM );
-  wbkgd(status_bar, COLOR_PAIR(1) | A_BOLD | A_DIM );
-  wbkgd(filter_menu, COLOR_PAIR(11) | A_BOLD | A_DIM );
+      wbkgd(title_bar, COLOR_PAIR(11) | A_BOLD | A_DIM );
+      wbkgd(status_bar, COLOR_PAIR(1) | A_BOLD | A_DIM );
+      wbkgd(filter_menu, COLOR_PAIR(11) | A_BOLD | A_DIM );
 
-  mvwprintw(title_bar, 0, center,  "%s", server_title);
+      mvwprintw(title_bar, 0, center,  "%s", server_title);
 
-  wprintw(status_bar, "[ 00:00:00 ]");
-  wprintw(status_bar, "%50s %d", "Clients Connected:", 0);
-  wnoutrefresh(title_bar);
-  wnoutrefresh(status_bar);
-  doupdate();
-
-  // end NCURSES setup
+      wprintw(status_bar, "[ 00:00:00 ]");
+      wprintw(status_bar, "%50s %d", "Clients Connected:", 0);
+      wnoutrefresh(title_bar);
+      wnoutrefresh(status_bar);
+      doupdate();
+  } // end NCURSES setup
   
   // create server socket
-  comm = new commServer();
+  comm = new commServer(t_args->ip, t_args->port);
   
   //wprintw(output, "clients connect using: host=[%s] port=[%d]\n", comm->get_host(), comm->get_port() );
   
-  if ( pthread_create( &thread_id0, NULL, &paintbrush, NULL )) {
-    perror( "**error> server/basic thread" );
-    exit( 1 );
+  if(t_args->interactive){
+      if ( pthread_create( &thread_id0, NULL, &paintbrush, (void *)t_args )) {
+	perror( "**error> server/basic thread" );
+	exit( 1 );
+      }
+#ifdef SIMULATE
+      if ( pthread_create( &thread_id_x, NULL, &pushy, (void *)t_args )) {
+	perror( "**error> server/basic thread" );
+	exit( 1 );
+      }
+#endif
+  }else{
+      if ( pthread_create( &thread_id0, NULL, &pencil, (void *)t_args )) {
+	perror( "**error> server/basic thread" );
+	exit( 1 );
+      }
+
+#ifdef SIMULATE
+      if ( pthread_create( &thread_id_x, NULL, &pushy, (void *)t_args )) {
+	perror( "**error> server/basic thread" );
+	exit( 1 );
+      }
+#endif
   }
 
-  if ( pthread_create( &thread_id1, NULL, &keyscan, NULL )) {
-    perror( "**error> server/basic thread" );
-    exit( 1 );
-  }
-
-  if ( pthread_create( &thread_id2, NULL, &posebeat, NULL )) {
+  if ( pthread_create( &thread_id1, NULL, &posebeat, NULL )) {
     perror( "**error> server/basic thread" );
     exit( 1 );
   }
