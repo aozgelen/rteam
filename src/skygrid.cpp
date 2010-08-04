@@ -82,6 +82,28 @@ void display_usage(char *name){
   exit(1);
 }
 
+/**
+ * find_robot()
+ *
+ * Searches the robots list for the given session_id.
+ * If it is found in the list, it returns true, and iter is
+ * a valid iterator to the robot; otherwise it returns false.
+ */
+bool find_robot( int session_id, list<robot_p>::iterator& iter ) {
+  bool found = false;
+  pthread_mutex_lock( &robots_mutex );
+  for (list<robot_p>::iterator i = robots.begin();
+       !found && i != robots.end(); ++i) {
+    if ( ((*i)->get_session_id()) == session_id ) {
+      found = true;
+      iter = i;
+    }
+  }
+  pthread_mutex_unlock( &robots_mutex );
+  return found;
+} // end of find_robot()
+
+// 
 // construct_msg: Constructs strings into standard format
 // Parameters:
 //
@@ -93,35 +115,46 @@ string construct_msg(string type, string message, long robot_id){
   ostringstream buffer;
   char time_buffer[] = "00:00:00";
   string tmp;
+  list<robot_p>::iterator bot;
 
-  snprintf(time_buffer, sizeof(time_buffer),
-          "%02d:%02d:%02d", tm->tm_hour, tm->tm_min, tm->tm_sec);
+  if (find_robot( robot_id, bot ) || robot_id == -1) {
+      snprintf(time_buffer, sizeof(time_buffer),
+	      "%02d:%02d:%02d", tm->tm_hour, tm->tm_min, tm->tm_sec);
 
-  buffer << time_buffer << " ";
+      buffer << time_buffer << " ";
 
-  buffer << "[ " << type << " ]" << " ";
-  buffer << message << " ";
+      buffer << "[ " << type << " ]" << " ";
+      buffer << message << " ";
 
-  if(type == "SENT"){
-    buffer << "[ TO ]" << " ";
-  }else if(type == "RECIEVED"){
-    buffer << "[ BY ]" << " ";
-  }else if(type == "PUSHED"){
-    buffer << "[ ONTO ]" << " ";
-  }else if(type == "POPPED"){
-    buffer << "[ OFF ]" << " ";
+      if(type == "SENT"){
+	buffer << "[ TO ]" << " ";
+      }else if(type == "RECIEVED"){
+	buffer << "[ BY ]" << " ";
+      }else if(type == "STATUS"){
+	buffer << "[ STATUS ]" << " ";
+      }else if(type == "PUSHED"){
+	buffer << "[ ONTO ]" << " ";
+      }else if(type == "POPPED"){
+	buffer << "[ OFF ]" << " ";
+      }else{
+	buffer << "[ ERROR ]" << " ";
+      }
+
+      if(robot_id != -1){
+	  buffer << (*bot)->get_name() << " ";
+	  buffer << robot_id;
+      }else{
+	  buffer << "SKYGRID" << " ";
+	  buffer << 0;
+      }
   }else{
-    buffer << "[ ERROR ]" << " ";
+    // robot not found
   }
-
-  // Find robot name and get
-
-  buffer << "ELGUI" << " ";
-  buffer << "192924812414";
 
   return buffer.str();
 
 }
+
 
 void push_paint(string type, string message, long robot_id){
   string msg = construct_msg(type, message, robot_id);
@@ -270,28 +303,6 @@ void color_msg(WINDOW *win, string message){
 
 
 
-/**
- * find_robot()
- *
- * Searches the robots list for the given session_id.
- * If it is found in the list, it returns true, and iter is
- * a valid iterator to the robot; otherwise it returns false.
- */
-bool find_robot( int session_id, list<robot_p>::iterator& iter ) {
-  bool found = false;
-  pthread_mutex_lock( &robots_mutex );
-  for (list<robot_p>::iterator i = robots.begin();
-       !found && i != robots.end(); ++i) {
-    if ( ((*i)->get_session_id()) == session_id ) {
-      found = true;
-      iter = i;
-    }
-  }
-  pthread_mutex_unlock( &robots_mutex );
-  return found;
-} // end of find_robot()
-
-
 bool send_or_push( char *msgbuf, robot *myrobot, long recipient_id ) {
   unsigned char len = strlen(msgbuf);
   string p(msgbuf);
@@ -307,7 +318,7 @@ bool send_or_push( char *msgbuf, robot *myrobot, long recipient_id ) {
         push_paint("ERROR", "failed to send message", myrobot->get_session_id());
         return false;
        }else{
-	push_paint("SENT", p, recipient_id);
+	push_paint("SENT", msgbuf, recipient_id);
        }
       }
   }else{
@@ -340,7 +351,6 @@ int init_client( char *msgbuf, robot *myrobot) {
 
   string p(ptr);
   stringstream istream(p);
-  //cout << "INIT Got string: " << p << endl;
 
   istream >> command;
   if(command != "INIT"){
@@ -354,11 +364,6 @@ int init_client( char *msgbuf, robot *myrobot) {
       }
   }
 
-  //cout << "Command: " << command << endl;
-  //cout << "Type: " << type << endl;
-  //cout << "Name: " << name << endl;
-  //cout << "Num of Provides: " << num_provides << endl;
-  //cout << "Provides: " << provides << endl;
 
   myrobot->set_type_id(type.c_str());
   myrobot->set_name(name.c_str());
@@ -367,6 +372,8 @@ int init_client( char *msgbuf, robot *myrobot) {
      istream >> provides;
 	  myrobot->add_to_provides(provides);
   }
+
+  push_paint("RECIEVED", ptr, myrobot->get_session_id());
 
   free(ptr);
 
@@ -385,13 +392,13 @@ int ack_client( char *msgbuf, robot *myrobot) {
   ack += " ";
   ack += convert.str();
   len = strlen(ack.c_str());
-  strncpy(msgbuf, ack.c_str(), len);
 
-  if (( comm->send_msg( myrobot->get_sock(), len, msgbuf ) == -1 )) {
-    //cout << "**error> reading message in client_handler" << endl;
+  if (( comm->send_msg( myrobot->get_sock(), len, ack.c_str() ) == -1 )) {
     push_paint("ERROR", "reading message in client_handler",
 	    myrobot->get_session_id());
     return STATE_QUIT;
+  }else{
+	push_paint("SENT", ack, myrobot->get_session_id());
   }
 
   return STATE_IDLE;
@@ -531,6 +538,8 @@ int client_pong( char *msgbuf, robot *myrobot) {
     push_paint("ERROR", "reading message in client_handler",
 	    myrobot->get_session_id());
     return STATE_QUIT;
+  }else{
+	push_paint("SENT", msgbuf, myrobot->get_session_id());
   }
 
   return STATE_IDLE;
@@ -615,6 +624,8 @@ int client_ident( char *msgbuf, robot *myrobot) {
     push_paint("ERROR", "reading message in client_handler",
 	    myrobot->get_session_id());
     return STATE_QUIT;
+  }else{
+	push_paint("SENT", msgbuf, myrobot->get_session_id());
   }
 
 
@@ -714,6 +725,8 @@ int client_send_pose( char *msgbuf, robot *myrobot) {
     push_paint("ERROR", "failed to send message",
 	    myrobot->get_session_id());
       return STATE_QUIT;
+  }else{
+	push_paint("SENT", msgbuf, myrobot->get_session_id());
   }
 
   return STATE_IDLE;
@@ -794,6 +807,8 @@ int client_ask_player( char *msgbuf, robot *myrobot) {
 		myrobot->get_session_id());
 	  //cerr << "**error> failed to send message" << endl;
 	  return STATE_QUIT;
+      }else{
+	push_paint("SENT", msgbuf, myrobot->get_session_id());
       }
 
     }
@@ -834,6 +849,8 @@ int client_get_player( char *msgbuf, robot *myrobot) {
 		myrobot->get_session_id());
 	//      cerr << "**error> failed to send message" << endl;
 	      return STATE_QUIT;
+      }else{
+	push_paint("SENT", msgbuf, myrobot->get_session_id());
       }
 
       return STATE_IDLE;
@@ -1374,20 +1391,23 @@ int main( int argc, char *argv[] ) {
 
     //fprintf( stdout,"server: socket created/listen/accepted\n" );
     //fflush( stdout );
+    push_paint("STATUS", "server socket created/listen/accepted", -1);
     
-    wprintw( output,"server status: socket created/listen/accepted\n" );
+    //wprintw( output,"server status: socket created/listen/accepted\n" );
 
     // create an entry in the robots list for this client
     robot_p rp = new robot();
     if (rp == 0) {
+	//push_paint("STATUS", "**error> failed to create new robot", -1);
         //cerr << "**error> failed to create new robot" << endl;
-	print_error(output, "Failed to created new robot");
+	//print_error(output, "Failed to created new robot");
     } else {
         rp->set_session_id(time(0));
         rp->set_sock(csock);
+	//push_paint("STATUS", "created new robot, id= x", -1);
         //cout << "created new robot, id=" << rp->get_session_id() << endl;
-	wprintw( output,"created new robot, id=%d\n",
-		rp->get_session_id() );
+	//wprintw( output,"created new robot, id=%d\n",
+	//	rp->get_session_id() );
 
         // create a new thread for this client
         pthread_mutex_lock( &threads_mutex );
@@ -1395,14 +1415,14 @@ int main( int argc, char *argv[] ) {
 	    		 NULL, 
 	    		 &client_handler, 
 	    		 (void *)rp )) {
-          //printf( "**error> could not create thread for client_handler\n" );
-          print_error(output, "could not create thread for client_handler");
+          printf( "**error> could not create thread for client_handler\n" );
+          //print_error(output, "could not create thread for client_handler");
           delete rp;
         }
         else {
           if (pthread_detach(thread_id[num_threads]) != 0) {
-             //cerr << "**error> failed to detach thread" << endl;
-             print_error(output, "**error> failed to detach thread");
+             cerr << "**error> failed to detach thread" << endl;
+             //print_error(output, "**error> failed to detach thread");
           }
           num_threads++;
           pthread_mutex_lock( &robots_mutex );
