@@ -80,7 +80,7 @@ commClient::~commClient() {
  * returns 0 if message is sent okay; returns -1 otherwise
  *
  */
-int commClient::send_msg( unsigned char len, char *p ) {
+int commClient::send_msg( unsigned char len, const char *p ) {
   int nwritten;
   if (( nwritten = write( sock, &len, sizeof( len ) )) == -1 ) {
     return( -1 );
@@ -108,7 +108,7 @@ int commClient::read_msg( unsigned char len, char **p ) {
     return( -1 );
   }
   if ( nread > 0 ) {
-    buf = (char *)malloc( nread + 1 );
+    buf = (char *)malloc( len + 1 );
     if (( nread = read( sock, buf, len )) < 0 ) {
       return( -1 );
     }

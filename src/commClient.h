@@ -8,19 +8,18 @@
 
 #define TERM '\n'
 
-class commClient {
+class commClient{
+    private:
+      char *host;
+      int port;
+      int sock;
 
- private:
-  char *host;
-  int port;
-  int sock;
+     public:
+      commClient( const char *host, int port );
+      ~commClient();
 
- public:
-  commClient( const char *host, int port );
-  ~commClient();
-
-  int send_msg( unsigned char len, char *p );
-  int read_msg( unsigned char len, char **p );
+      int send_msg( unsigned char len, const char *p );
+      int read_msg( unsigned char len, char **p );
 
 }; // end of commClient class
 

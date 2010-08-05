@@ -431,6 +431,8 @@ int client_idle( char *msgbuf, robot *myrobot) {
 
 	}
       }
+
+    usleep(1); // give up some cpu time
   }
 
   //cout << "ERROR!" << endl;
@@ -1081,6 +1083,7 @@ void *paintbrush( void *arg ) {
 	  color_msg(output, buffer);
     }
 
+    usleep(1); // give up some cpu time
   }
 
 
@@ -1391,10 +1394,8 @@ int main( int argc, char *argv[] ) {
 
     //fprintf( stdout,"server: socket created/listen/accepted\n" );
     //fflush( stdout );
-    push_paint("STATUS", "server socket created/listen/accepted", -1);
+    push_paint("STATUS", "ACCEPTED REMOTE CONNECTION", -1);
     
-    //wprintw( output,"server status: socket created/listen/accepted\n" );
-
     // create an entry in the robots list for this client
     robot_p rp = new robot();
     if (rp == 0) {
