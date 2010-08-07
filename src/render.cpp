@@ -12,6 +12,19 @@ queue<string> painter_queue;
 
 extern int num_threads;
 
+int get_term_size(int *width, int *height)
+{
+        struct winsize ws; 
+
+        if (ioctl(0, TIOCGWINSZ, &ws) < 0)
+                return FALSE;
+
+        *width = ws.ws_col;
+        *height = ws.ws_row;
+
+        return TRUE;
+}
+
 // 
 // construct_msg: Constructs strings into standard format
 // Parameters:
@@ -266,6 +279,7 @@ void *paintbrush( void *arg ) {
   char input_buffer[input_size];
 
   int x, y;
+  int height, width;
 
   getmaxyx(stdscr, y, x); 
   center = x - sizeof(MAIN_TITLE);
@@ -290,6 +304,8 @@ void *paintbrush( void *arg ) {
 
     if(was_resized){
       was_resized = !was_resized;
+      get_term_size(&width, &height);
+      resizeterm(width, height);
       endwin();
       refresh();
       touchwin(output);

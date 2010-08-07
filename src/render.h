@@ -12,8 +12,13 @@
 #include <queue>
 #include <pthread.h>
 #include <iostream>
+#include <sys/stat.h>
+#include <sys/ioctl.h>
+#include <termios.h>
+
 
 #define MAIN_TITLE "Skygrid 1.0"
+#define MIN_SCREEN_WIDTH 50
 
 using namespace std;
 
@@ -26,6 +31,7 @@ struct thread_args{
 };
 
 string construct_msg(string type, string message, long robot_id, string name);
+int term_get_size(int *width, int *height);
 void push_paint(string type, string message, long robot_id, string name);
 const string pop_paint();
 bool paint_empty();
