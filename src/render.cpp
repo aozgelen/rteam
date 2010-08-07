@@ -1,9 +1,16 @@
 #include "render.h"
 
+WINDOW *title_bar;
+WINDOW *output;
+WINDOW *status_bar;
+WINDOW *filter_menu;
+
 bool was_resized = false;
 pthread_mutex_t paint_mutex;
 pthread_mutex_t paint_refresh;
 queue<string> painter_queue;
+
+extern int num_threads;
 
 // 
 // construct_msg: Constructs strings into standard format
@@ -201,4 +208,249 @@ void catch_resize(int sig){
   pthread_mutex_lock( &paint_refresh );
   was_resized = !was_resized;
   pthread_mutex_unlock( &paint_refresh );
+}
+
+void *pencil( void *arg ) {
+  string buffer;
+  ofstream log;
+  thread_args *t_args = (thread_args *)arg;
+
+  if(t_args->log_enabled){
+    log.open(t_args->logfile);
+  }
+
+  for(;;){
+    if(paint_empty())
+      continue;
+
+    buffer = pop_paint();
+
+    cout << buffer << endl;
+
+    if(t_args->log_enabled){
+      log << buffer << endl;
+    }
+
+    usleep(250);
+  }
+
+}
+
+/**
+ * paintbrush()
+ *
+ * This is a little paintbrush function that is spawned by a thread in the server.
+ * It provides a count to show that the server is still alive.
+ *
+ */
+void *paintbrush( void *arg ) {
+  time_t rawtime;
+  struct tm *tm;
+  int ch;
+  bool paused = false;
+  bool filter_visible = false;
+  string buffer;
+  int center;
+  ofstream log;
+  thread_args *t_args = (thread_args *)arg;
+
+  if(t_args->log_enabled){
+    log.open(t_args->logfile);
+  }
+
+  char paused_msg[] = "[ PAUSED ]";
+
+  regex_t regx;
+  int current_pos = 0;
+  const int input_size = 40;
+  char input_buffer[input_size];
+
+  int x, y;
+
+  getmaxyx(stdscr, y, x); 
+  center = x - sizeof(MAIN_TITLE);
+  center = center / 2;
+
+  regcomp(&regx, ".", REG_EXTENDED);
+
+  while ( 1 ) {
+    time ( &rawtime );
+    tm = localtime ( &rawtime );
+
+    werase(status_bar);
+    wprintw(status_bar, "[ %02d:%02d:%02d ]",
+	  tm->tm_hour, tm->tm_min, tm->tm_sec);
+    wprintw(status_bar, "%10s %d", " Clients Connected:", num_threads);
+    wprintw(status_bar, "%15s %s %s %d",
+	    " SERVER IP:", t_args->ip, "SERVER PORT:", t_args->port);
+
+    ch = getch();
+
+    pthread_mutex_lock( &paint_refresh );
+
+    if(was_resized){
+      was_resized = !was_resized;
+      endwin();
+      refresh();
+      touchwin(output);
+      refresh();
+    }
+
+    pthread_mutex_unlock( &paint_refresh );
+
+
+    if(filter_visible){
+        if(ch == 27){ // Escape Key
+          filter_visible = false;
+          touchwin(output);
+          refresh();
+        }else if(ch == 10){ // Enter Key
+          filter_visible = false;
+          input_buffer[current_pos] = '\0';
+
+          if(current_pos == 0){
+              regcomp(&regx, ".", REG_EXTENDED | REG_ICASE);
+          }else{
+              regcomp(&regx, input_buffer, REG_EXTENDED | REG_ICASE);
+          }
+
+          touchwin(output);
+          refresh();
+        }else if(ch == 127){ // Backspace Key
+          if(current_pos > 0){
+              wmove(filter_menu, 1, 9 + current_pos);
+              waddch(filter_menu, ' ');
+              input_buffer[current_pos] = '\0';
+              --current_pos;
+          }else{
+	    flash();
+	  }
+        }else if(ch != ERR){
+          if(current_pos < input_size){
+              wmove(filter_menu, 1, 10 + current_pos);
+              waddch(filter_menu,ch);
+              input_buffer[current_pos] = (char) ch;
+              ++current_pos;
+          }else{
+            flash();
+          }
+        }
+
+      }else{
+          if(ch == ' '){
+
+            paused = !paused;
+	    if(!paused){
+	      werase(title_bar);
+	      mvwprintw(title_bar, 0, center,  "%s", MAIN_TITLE);
+	    }else{
+	      werase(title_bar);
+	      mvwprintw(title_bar, 0, center - sizeof(paused_msg),
+		      "%s", paused_msg);
+
+	      mvwprintw(title_bar, 0, center, "%s %s",
+		      MAIN_TITLE, paused_msg);
+	    }
+
+          }else if(ch == 'f' || ch == 'F'){
+            filter_visible = !filter_visible;
+            werase(filter_menu);
+            mvwprintw(filter_menu, 1, 2,  "%s", "Filter: ");
+            box(filter_menu, 0, 0);
+            current_pos = 0;
+
+          }else if(ch == 'q' || ch == 'Q'){
+            endwin();
+	    exit(0);
+          }
+	 
+      }
+    
+    wnoutrefresh(status_bar);
+    touchwin(status_bar);
+    touchwin(title_bar);
+    touchwin(filter_menu);
+
+    if(!paused){
+      wnoutrefresh(output);
+    }
+
+    if(filter_visible){
+      wnoutrefresh(filter_menu);
+    }
+
+    wnoutrefresh(title_bar);
+    wnoutrefresh(status_bar);
+
+    doupdate();
+
+    if(paint_empty())
+      continue;
+
+    buffer = pop_paint();
+
+    if(t_args->log_enabled){
+      log << buffer << endl;
+    }
+    
+    if(regexec(&regx, buffer.c_str(), 0, 0, 0) == 0){
+	  color_msg(output, buffer);
+    }
+
+    usleep(1); // give up some cpu time
+  }
+
+
+} // end of paintbrush()
+
+void interactive_setup(){
+  int x, y, center;
+
+      initscr();
+      start_color();
+
+      getmaxyx(stdscr, y, x); 
+
+      center = x - sizeof(MAIN_TITLE);
+      center = center / 2;
+
+      title_bar = newwin(1, x, 0, 0); 
+      output = newwin(y - 1, x, 2, 0); 
+      status_bar = newwin(1, x, y - 1, 0); 
+      filter_menu =
+	  newwin(3, x - x / 4 , (y - 3) / 2, ( x - (x - x / 4)) / 2 );
+
+      init_pair(1, COLOR_BLACK, COLOR_WHITE);
+      init_pair(2, COLOR_GREEN, COLOR_BLACK);
+      init_pair(3, COLOR_BLACK, COLOR_RED);
+      init_pair(4, COLOR_CYAN, COLOR_BLACK);
+      init_pair(5, COLOR_MAGENTA, COLOR_BLACK);
+      init_pair(6, COLOR_WHITE, COLOR_BLACK);
+      init_pair(7, COLOR_YELLOW, COLOR_BLACK);
+      init_pair(8, COLOR_WHITE, COLOR_BLACK);
+      init_pair(9, COLOR_RED, COLOR_BLACK);
+      init_pair(10, COLOR_BLUE, COLOR_BLACK);
+      init_pair(11, COLOR_WHITE, COLOR_BLUE);
+
+      scrollok(output, TRUE);
+      nodelay(output, TRUE);
+      noecho();
+      nodelay(stdscr, TRUE);
+      curs_set(0);
+
+      wbkgd(title_bar, COLOR_PAIR(11) | A_BOLD | A_DIM );
+      wbkgd(status_bar, COLOR_PAIR(1) | A_BOLD | A_DIM );
+      wbkgd(filter_menu, COLOR_PAIR(11) | A_BOLD | A_DIM );
+
+      mvwprintw(title_bar, 0, center,  "%s", MAIN_TITLE);
+
+      wprintw(status_bar, "[ 00:00:00 ]");
+      wprintw(status_bar, "%50s %d", "Clients Connected:", 0);
+      wnoutrefresh(title_bar);
+      wnoutrefresh(status_bar);
+
+      signal(SIGWINCH, catch_resize);
+
+      doupdate();
+
 }
