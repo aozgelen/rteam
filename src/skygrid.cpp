@@ -38,7 +38,6 @@ using namespace std;
 #define MAX_THREADS 100
 #define MAX_BUFFER  1024
 
-
 typedef int (*function_ptr)(char *, robot *);
 
 // some global variables...

@@ -325,7 +325,12 @@ void *paintbrush( void *arg ) {
           }else{
 	    flash();
 	  }
-        }else if(ch != ERR){
+        }else if(ch == 21){ // Control + U: Erase line
+            werase(filter_menu);
+            mvwprintw(filter_menu, 1, 2,  "%s", "Filter: ");
+            box(filter_menu, 0, 0);
+            current_pos = 0;
+	}else if(ch != ERR){
           if(current_pos < input_size){
               wmove(filter_menu, 1, 10 + current_pos);
               waddch(filter_menu,ch);
