@@ -22,39 +22,26 @@ using namespace std;
 #include <unistd.h>
 #include <signal.h>
 #include <errno.h>
-#include <ctime>
 #include <sys/select.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/wait.h>
 #include <netinet/in.h>
 #include <pthread.h>
-#include <ncurses.h>
-#include <regex.h>
 
 #include "definitions.h"
 #include "commServer.h"
 #include "pose.h"
 #include "robot.h"
+#include "render.h"
 
 #define VERSION "1.0"
 #define MAX_THREADS 10
 #define MAX_BUFFER  1024
 
-// SIMULATE spawns a phantom user for testing purposes
-#define SIMULATE
- 
 const char server_title[] = "SkyGrid " VERSION;
 
 typedef int (*function_ptr)(char *, robot *);
-
-struct thread_args{
-  bool interactive;
-  bool log_enabled;
-  char logfile[32];
-  char ip[16];
-  int port;
-};
 
 // some global variables...
 commServer *comm = NULL;
@@ -64,14 +51,19 @@ list<robot_p> robots;
 function_ptr function_array[255] = {NULL};
 pthread_mutex_t threads_mutex;
 int num_threads = 0;
-pthread_mutex_t paint_mutex;
-queue<string> painter_queue;
+
 
 // NCURSES global window declarations
 WINDOW *title_bar;
 WINDOW *output;
 WINDOW *status_bar;
 WINDOW *filter_menu;
+
+// NCURSES related globals
+extern bool was_resized;
+extern pthread_mutex_t paint_mutex;
+extern pthread_mutex_t paint_refresh;
+extern queue<string> painter_queue;
 
 
 // display_usage: Displays the program usage
@@ -103,205 +95,6 @@ bool find_robot( int session_id, list<robot_p>::iterator& iter ) {
   return found;
 } // end of find_robot()
 
-// 
-// construct_msg: Constructs strings into standard format
-// Parameters:
-//
-string construct_msg(string type, string message, long robot_id){
-  time_t rawtime;
-  struct tm *tm;
-  time ( &rawtime );
-  tm = localtime ( &rawtime );
-  ostringstream buffer;
-  char time_buffer[] = "00:00:00";
-  string tmp;
-  list<robot_p>::iterator bot;
-
-  if (find_robot( robot_id, bot ) || robot_id == -1) {
-      snprintf(time_buffer, sizeof(time_buffer),
-	      "%02d:%02d:%02d", tm->tm_hour, tm->tm_min, tm->tm_sec);
-
-      buffer << time_buffer << " ";
-
-      buffer << "[ " << type << " ]" << " ";
-      buffer << message << " ";
-
-      if(type == "SENT"){
-	buffer << "[ TO ]" << " ";
-      }else if(type == "RECIEVED"){
-	buffer << "[ BY ]" << " ";
-      }else if(type == "STATUS"){
-	buffer << "[ STATUS ]" << " ";
-      }else if(type == "PUSHED"){
-	buffer << "[ ONTO ]" << " ";
-      }else if(type == "POPPED"){
-	buffer << "[ OFF ]" << " ";
-      }else{
-	buffer << "[ ERROR ]" << " ";
-      }
-
-      if(robot_id != -1){
-	  buffer << (*bot)->get_name() << " ";
-	  buffer << robot_id;
-      }else{
-	  buffer << "SKYGRID" << " ";
-	  buffer << 0;
-      }
-  }else{
-    // robot not found
-  }
-
-  return buffer.str();
-
-}
-
-
-void push_paint(string type, string message, long robot_id){
-  string msg = construct_msg(type, message, robot_id);
-
-  pthread_mutex_lock( &paint_mutex );
-
-  if(!msg.empty()){
-    painter_queue.push( msg );
-  }else{
-    //cout << "Got empty string" << endl;
-  }
-
-  pthread_mutex_unlock( &paint_mutex );
-  
-}
-
-const string pop_paint(){
-  string msg;                                                                   
-  pthread_mutex_lock( &paint_mutex );
-
-  if ( painter_queue.empty() ) {
-    msg.clear();
-  }
-  else {
-    msg = painter_queue.front();
-    painter_queue.pop();
-  }
-
-  pthread_mutex_unlock( &paint_mutex );
-
-  return( msg );
-}
-
-bool paint_empty() {                                                       
-  bool empty = false;
-
-  pthread_mutex_lock( &paint_mutex );
-
-  if(painter_queue.empty()){
-    empty = true;
-  }
-
-  pthread_mutex_unlock( &paint_mutex );
-
-  return empty;
-}
-
-
-void print_error(WINDOW *win, string err_msg){
-    time_t rawtime;
-    struct tm * tm;
-
-    time ( &rawtime );
-    tm = localtime ( &rawtime );
-    
-    wattrset(win, A_DIM | COLOR_PAIR(8));
-    wprintw(win, " %02d:%02d:%02d ",
-	  tm->tm_hour, tm->tm_min, tm->tm_sec);
-    wattrset(win, COLOR_PAIR(3) | A_BOLD);
-    wprintw(win, "[ ERROR ]");
-
-    wattrset(win, COLOR_PAIR(9) | A_BOLD | A_DIM);
-    wprintw(win, " %s\n", err_msg.c_str());
-
-    // call general msg colorer
-}
-
-void color_msg(WINDOW *win, string message){
-
-  char buffer[255];
-  char *tmp;
-  size_t found;
-
-  time_t rawtime;
-  struct tm *tm;
-  time ( &rawtime );
-  tm = localtime ( &rawtime );
-
-  strncpy(buffer, message.c_str(), 255);
-
-  // Print time
-  tmp = buffer;
-  found = message.find(" ");
-  buffer[found] = '\0';
-
-  wattrset(win, A_DIM | COLOR_PAIR(8));
-  wprintw(win, "%s ", tmp);
-
-  // Print type
-  ++found;
-  tmp = &buffer[found];
-  found = message.find("]", found);
-  ++found;
-  buffer[found] = '\0';
-
-  wattrset(win, A_BOLD|COLOR_PAIR(5));
-  wprintw(win, "%s ", tmp);
-
-  // Print command
-  ++found;
-  tmp = &buffer[found];
-  found = message.find(" ", found);
-  buffer[found] = '\0';
-
-  wattrset(win, A_BOLD|COLOR_PAIR(4));
-  wprintw(win, "%s ", tmp);
-
-  // Print rest of command
-  ++found;
-  tmp = &buffer[found];
-  found = message.find("[", found);
-  --found;
-  buffer[found] = '\0';
-
-  wattrset(win, A_BOLD | COLOR_PAIR(8));
-  wprintw(win, "%s ", tmp);
-  
-  // Print action
-  ++found;
-  tmp = &buffer[found];
-  found = message.find("]", found);
-  ++found;
-  buffer[found] = '\0';
-
-  wattrset(win, A_BOLD|COLOR_PAIR(5));
-  wprintw(win, "%s ", tmp);
-
-  // Print username
-  ++found;
-  tmp = &buffer[found];
-  found = message.find(" ", found);
-  buffer[found] = '\0';
-
-  wattrset(win, A_BOLD|COLOR_PAIR(10));
-  wprintw(win, "%s ", tmp);
-
-  // Print ID
-  ++found;
-  tmp = &buffer[found];
-  wattrset(win, A_BOLD|COLOR_PAIR(2));
-  wprintw(win, "%s ", tmp);
-
-  wprintw(win, "\n\n");
-
-}
-
-
 
 bool send_or_push( char *msgbuf, robot *myrobot, long recipient_id ) {
   unsigned char len = strlen(msgbuf);
@@ -311,14 +104,14 @@ bool send_or_push( char *msgbuf, robot *myrobot, long recipient_id ) {
   if (find_robot( recipient_id, bot )) {
       if(recipient_id != myrobot->get_session_id()){
         (*bot)->push_msg(p);
-	push_paint("PUSHED", p, recipient_id);
+	push_paint("PUSHED", p, recipient_id, (*bot)->get_name());
       }else{
        if(comm->send_msg( myrobot->get_sock(), len, msgbuf) == -1){
         //cerr << "**error> failed to send message" << endl;
-        push_paint("ERROR", "failed to send message", myrobot->get_session_id());
+        push_paint("ERROR", "failed to send message", myrobot->get_session_id(), (*bot)->get_name());
         return false;
        }else{
-	push_paint("SENT", msgbuf, recipient_id);
+	push_paint("SENT", msgbuf, recipient_id, (*bot)->get_name());
        }
       }
   }else{
@@ -341,8 +134,8 @@ int init_client( char *msgbuf, robot *myrobot) {
 
   if (( comm->read_msg( myrobot->get_sock(), len, &ptr ) == -1 ) || (ptr == NULL)) {
     //cout << "**error> reading message in client_handler" << endl;
-    push_paint("ERROR", "reading message in client_handler",
-	    myrobot->get_session_id());
+    push_paint("ERROR", "CLOSING REMOTE CONNECTION: Failed to read from socket in init_client",
+	    myrobot->get_session_id(), myrobot->get_name());
     return STATE_QUIT;
   }
   else {
@@ -373,7 +166,7 @@ int init_client( char *msgbuf, robot *myrobot) {
 	  myrobot->add_to_provides(provides);
   }
 
-  push_paint("RECIEVED", ptr, myrobot->get_session_id());
+  push_paint("RECIEVED", ptr, myrobot->get_session_id(), myrobot->get_name());
 
   free(ptr);
 
@@ -394,11 +187,11 @@ int ack_client( char *msgbuf, robot *myrobot) {
   len = strlen(ack.c_str());
 
   if (( comm->send_msg( myrobot->get_sock(), len, ack.c_str() ) == -1 )) {
-    push_paint("ERROR", "reading message in client_handler",
-	    myrobot->get_session_id());
+    push_paint("ERROR", "CLOSING REMOTE CONNECTION: Failed to read from socket in ack_client",
+	    myrobot->get_session_id(), myrobot->get_name());
     return STATE_QUIT;
   }else{
-	push_paint("SENT", ack, myrobot->get_session_id());
+	push_paint("SENT", ack, myrobot->get_session_id(), myrobot->get_name());
   }
 
   return STATE_IDLE;
@@ -437,7 +230,7 @@ int client_idle( char *msgbuf, robot *myrobot) {
 
   //cout << "ERROR!" << endl;
   push_paint("ERROR", "client_idle: should have not reached here",
-	  myrobot->get_session_id());
+	  myrobot->get_session_id(), myrobot->get_name());
 
   return STATE_ERROR;
 }
@@ -450,17 +243,17 @@ int proc_cmd( char *msgbuf, robot *myrobot) {
 
   if(que_msg != ""){
     //cout << "Got from Que" << endl;
-    push_paint("POPPED", que_msg.c_str(), myrobot->get_session_id());
+    push_paint("POPPED", que_msg.c_str(), myrobot->get_session_id(), myrobot->get_name());
     strcpy( msgbuf, que_msg.c_str() );
   }
   else if (( comm->read_msg( myrobot->get_sock(), len, &ptr ) == -1 ) || (ptr == NULL)) {
     //cout << "**error> reading message in client_handler" << endl;
-    push_paint("ERROR", "reading message in client_handler",
-	    myrobot->get_session_id());
+    push_paint("ERROR", "CLOSING REMOTE CONNECTION: Failed to read from socket in proc_cmd",
+	    myrobot->get_session_id(), myrobot->get_name());
     return STATE_QUIT;
   }
   else{
-    push_paint("RECIEVED", ptr, myrobot->get_session_id());
+    push_paint("RECIEVED", ptr, myrobot->get_session_id(), myrobot->get_name());
     strcpy( msgbuf,ptr );
   }
 
@@ -515,7 +308,7 @@ int proc_cmd( char *msgbuf, robot *myrobot) {
   // should not reach here
   //cout << "Should not of reached this!" << endl;
   push_paint("ERROR", "proc_cmd: should have not reached here",
-	  myrobot->get_session_id());
+	  myrobot->get_session_id(), myrobot->get_name());
   return STATE_ERROR;
 }
 
@@ -537,11 +330,11 @@ int client_pong( char *msgbuf, robot *myrobot) {
 
   if (( comm->send_msg( myrobot->get_sock(), len, msgbuf ) == -1 )) {
     //cout << "**error> reading message in client_handler" << endl;
-    push_paint("ERROR", "reading message in client_handler",
-	    myrobot->get_session_id());
+    push_paint("ERROR", "CLOSING REMOTE CONNECTION: Failed to read from socket in client_pong",
+	    myrobot->get_session_id(), myrobot->get_name());
     return STATE_QUIT;
   }else{
-	push_paint("SENT", msgbuf, myrobot->get_session_id());
+	push_paint("SENT", msgbuf, myrobot->get_session_id(), myrobot->get_name());
   }
 
   return STATE_IDLE;
@@ -597,20 +390,20 @@ int client_ident( char *msgbuf, robot *myrobot) {
     if((*i)->get_session_id() != myrobot->get_session_id()){
         msg += " ";
         convert.str("");
-	    convert << (*i)->get_session_id();
-	    msg += convert.str();
-	    msg += " ";
-	    msg += (*i)->get_name();
-	    msg += " ";
-	    msg += (*i)->get_type_id();
-	    msg += " ";
+	convert << (*i)->get_session_id();
+	msg += convert.str();
+	msg += " ";
+	msg += (*i)->get_name();
+	msg += " ";
+	msg += (*i)->get_type_id();
+	msg += " ";
         convert.str("");
-	    convert << (*i)->get_num_of_provides();
-	    msg += convert.str();
-	    vector<string> provides = (*i)->get_provides();
-	    for (unsigned int i = 0; i < provides.size(); ++i) {
-	    	msg += " " + provides[i];
-	    }
+	convert << (*i)->get_num_of_provides();
+	msg += convert.str();
+	vector<string> provides = (*i)->get_provides();
+	for (unsigned int i = 0; i < provides.size(); ++i) {
+	    msg += " " + provides[i];
+	}
     }
   }
   pthread_mutex_unlock( &robots_mutex );
@@ -623,11 +416,11 @@ int client_ident( char *msgbuf, robot *myrobot) {
 
   if (( comm->send_msg( myrobot->get_sock(), len, msgbuf ) == -1 )) {
     //cout << "**error> reading message in client_handler" << endl;
-    push_paint("ERROR", "reading message in client_handler",
-	    myrobot->get_session_id());
+    push_paint("ERROR", "client_ident: reading message in client_handler",
+	    myrobot->get_session_id(), myrobot->get_name());
     return STATE_QUIT;
   }else{
-	push_paint("SENT", msgbuf, myrobot->get_session_id());
+	push_paint("SENT", msgbuf, myrobot->get_session_id(), myrobot->get_name());
   }
 
 
@@ -657,7 +450,7 @@ int client_error( char *msgbuf, robot *myrobot) {
 
   //cout << "Got error, quitting" << endl;
     push_paint("ERROR", "got error quitting ...",
-	    myrobot->get_session_id());
+	    myrobot->get_session_id(), myrobot->get_name());
 
   return STATE_QUIT;
 }
@@ -725,10 +518,10 @@ int client_send_pose( char *msgbuf, robot *myrobot) {
   if(comm->send_msg( myrobot->get_sock(), len, msgbuf) == -1){
       //cerr << "**error> failed to send message" << endl;
     push_paint("ERROR", "failed to send message",
-	    myrobot->get_session_id());
+	    myrobot->get_session_id(), myrobot->get_name());
       return STATE_QUIT;
   }else{
-	push_paint("SENT", msgbuf, myrobot->get_session_id());
+	push_paint("SENT", msgbuf, myrobot->get_session_id(), myrobot->get_name());
   }
 
   return STATE_IDLE;
@@ -806,11 +599,11 @@ int client_ask_player( char *msgbuf, robot *myrobot) {
       len = strlen(msgbuf);
       if(comm->send_msg( myrobot->get_sock(), len, msgbuf) == -1){
 	push_paint("ERROR", "failed to send message",
-		myrobot->get_session_id());
+		myrobot->get_session_id(), myrobot->get_name());
 	  //cerr << "**error> failed to send message" << endl;
 	  return STATE_QUIT;
       }else{
-	push_paint("SENT", msgbuf, myrobot->get_session_id());
+	push_paint("SENT", msgbuf, myrobot->get_session_id(), myrobot->get_name());
       }
 
     }
@@ -818,7 +611,7 @@ int client_ask_player( char *msgbuf, robot *myrobot) {
     //cout << "ASKPOSE: Robot not found" << endl;
     // shoud appened robot_id
     push_paint("ERROR", "client_ask_player: robot not found",
-	    myrobot->get_session_id());
+	    myrobot->get_session_id(), myrobot->get_name());
   }
 
   return STATE_IDLE;
@@ -848,11 +641,11 @@ int client_get_player( char *msgbuf, robot *myrobot) {
 
       if(comm->send_msg( myrobot->get_sock(), len, msgbuf) == -1){
 	push_paint("ERROR", "failed to send message",
-		myrobot->get_session_id());
+		myrobot->get_session_id(), myrobot->get_name());
 	//      cerr << "**error> failed to send message" << endl;
 	      return STATE_QUIT;
       }else{
-	push_paint("SENT", msgbuf, myrobot->get_session_id());
+	push_paint("SENT", msgbuf, myrobot->get_session_id(), myrobot->get_name());
       }
 
       return STATE_IDLE;
@@ -860,7 +653,7 @@ int client_get_player( char *msgbuf, robot *myrobot) {
     }
 
     push_paint("ERROR", "client_ask_player: robot not found",
-	    myrobot->get_session_id());
+	    myrobot->get_session_id(), myrobot->get_name());
     //cout << "Robot not found" << endl;
   }
 
@@ -918,22 +711,9 @@ void *pencil( void *arg ) {
       log << buffer << endl;
     }
 
-    napms(250);
+    usleep(250);
   }
 
-}
-
-void *pushy( void *arg ) {
-  int rnd;
-  string types[] = { "ERROR", "SENT", "RECIEVED", "POPPED", "PUSHED" };
-  long ids[] = { 11290808, 12990123, 9812381,
-    1239823, 23432434 };
-
-  for(;;){
-    rnd = rand() % 5;
-    push_paint(types[rnd].c_str(), "POSE 1233442214 0 0 0 0",  ids[rnd]);
-    sleep(1 + rand() % 3);
-  }
 }
 
 /**
@@ -945,8 +725,8 @@ void *pushy( void *arg ) {
  */
 void *paintbrush( void *arg ) {
   time_t rawtime;
-  struct tm * tm;
-  char ch;
+  struct tm *tm;
+  int ch;
   bool paused = false;
   bool filter_visible = false;
   string buffer;
@@ -985,6 +765,19 @@ void *paintbrush( void *arg ) {
 	    " SERVER IP:", t_args->ip, "SERVER PORT:", t_args->port);
 
     ch = getch();
+
+    pthread_mutex_lock( &paint_refresh );
+
+    if(was_resized){
+      was_resized = !was_resized;
+      endwin();
+      refresh();
+      touchwin(output);
+      refresh();
+    }
+
+    pthread_mutex_unlock( &paint_refresh );
+
 
     if(filter_visible){
         if(ch == 27){ // Escape Key
@@ -1050,6 +843,7 @@ void *paintbrush( void *arg ) {
             endwin();
 	    exit(0);
           }
+	 
       }
     
     wnoutrefresh(status_bar);
@@ -1186,7 +980,7 @@ void *client_handler( void *arg ) {
 	    break;
 	default:
 	    //cout << "State was: " << state << endl;
-	    push_paint("ERROR", "Invalid State", myrobot->get_session_id());
+	    push_paint("ERROR", "Invalid State", myrobot->get_session_id(), myrobot->get_name());
 	    command = STATE_ERROR;
 	    break;
     }
@@ -1228,7 +1022,7 @@ void *client_handler( void *arg ) {
  */
 int main( int argc, char *argv[] ) {
   int ssock, csock;
-  pthread_t thread_id_x, thread_id0, thread_id1, thread_id[MAX_THREADS]; // array of thread id's
+  pthread_t thread_id0, thread_id1, thread_id[MAX_THREADS]; // array of thread id's
   struct sockaddr_in sin;
   socklen_t slen = sizeof( sin );
 
@@ -1276,7 +1070,6 @@ int main( int argc, char *argv[] ) {
     cerr << "error: port required" << endl;
     display_usage(argv[0]);
   }
-
 
   // initialize list of robots
   robots.clear();
@@ -1341,6 +1134,9 @@ int main( int argc, char *argv[] ) {
       wprintw(status_bar, "%50s %d", "Clients Connected:", 0);
       wnoutrefresh(title_bar);
       wnoutrefresh(status_bar);
+
+      signal(SIGWINCH, catch_resize);
+
       doupdate();
   } // end NCURSES setup
   
@@ -1354,24 +1150,11 @@ int main( int argc, char *argv[] ) {
 	perror( "**error> server/basic thread" );
 	exit( 1 );
       }
-#ifdef SIMULATE
-      if ( pthread_create( &thread_id_x, NULL, &pushy, (void *)t_args )) {
-	perror( "**error> server/basic thread" );
-	exit( 1 );
-      }
-#endif
   }else{
       if ( pthread_create( &thread_id0, NULL, &pencil, (void *)t_args )) {
 	perror( "**error> server/basic thread" );
 	exit( 1 );
       }
-
-#ifdef SIMULATE
-      if ( pthread_create( &thread_id_x, NULL, &pushy, (void *)t_args )) {
-	perror( "**error> server/basic thread" );
-	exit( 1 );
-      }
-#endif
   }
 
   if ( pthread_create( &thread_id1, NULL, &posebeat, NULL )) {
@@ -1394,7 +1177,7 @@ int main( int argc, char *argv[] ) {
 
     //fprintf( stdout,"server: socket created/listen/accepted\n" );
     //fflush( stdout );
-    push_paint("STATUS", "ACCEPTED REMOTE CONNECTION", -1);
+    push_paint("STATUS", "ACCEPTED REMOTE CONNECTION", 0, "");
     
     // create an entry in the robots list for this client
     robot_p rp = new robot();
