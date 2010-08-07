@@ -887,8 +887,6 @@ int main( int argc, char *argv[] ) {
   // create server socket
   comm = new commServer(t_args->ip, t_args->port);
   
-  //wprintw(output, "clients connect using: host=[%s] port=[%d]\n", comm->get_host(), comm->get_port() );
-  
   if(t_args->interactive){
       if ( pthread_create( &thread_id0, NULL, &paintbrush, (void *)t_args )) {
 	perror( "**error> server/basic thread" );
@@ -934,7 +932,6 @@ int main( int argc, char *argv[] ) {
         rp->set_sock(csock);
 	//push_paint("STATUS", "created new robot, id= x", -1);
         //cout << "created new robot, id=" << rp->get_session_id() << endl;
-	//wprintw( output,"created new robot, id=%d\n",
 	//	rp->get_session_id() );
 
         // create a new thread for this client
@@ -944,13 +941,11 @@ int main( int argc, char *argv[] ) {
 	    		 &client_handler, 
 	    		 (void *)rp )) {
           printf( "**error> could not create thread for client_handler\n" );
-          //print_error(output, "could not create thread for client_handler");
           delete rp;
         }
         else {
           if (pthread_detach(thread_id[num_threads]) != 0) {
              cerr << "**error> failed to detach thread" << endl;
-             //print_error(output, "**error> failed to detach thread");
           }
           num_threads++;
           pthread_mutex_lock( &robots_mutex );
