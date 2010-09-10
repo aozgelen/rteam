@@ -18,23 +18,22 @@
 
 class MCPainter {
 public:
-	MCPainter();
-
-	void drawGrid(Map * map);
-	void drawMarkers(Map * map);
-	void drawWalls(Map * map); 
-	void drawParticles(MonteCarloVisualDebugger * debugger);
-	void drawObservations(MonteCarloVisualDebugger * debugger,
-			MonteCarlo * mc);
-	void drawPosition(MonteCarlo * mc, Position realPosition);
-	void drawGoal(double goalX, double goalY);
-
-	// for path planner
-	void drawNodes(Graph * g);
-	void drawEdges(Graph * g); 
-	void drawSource(Graph * g, int x, int y); 
-	void drawTarget(Graph * g, int x, int y);
-	void drawPath(Graph * g, list<int> nodes); 
+  MCPainter();
+  
+  void drawGrid(Map * map);
+  void drawMarkers(Map * map);
+  void drawWalls(Map * map); 
+  void drawParticles(MonteCarloVisualDebugger * debugger);
+  void drawObservations(MonteCarloVisualDebugger * debugger, MonteCarlo * mc);
+  void drawPosition(MonteCarlo * mc, Position realPosition);
+  void drawGoal(double goalX, double goalY);
+  
+  // for path planner
+  void drawNodes(Graph * g);
+  void drawEdges(Graph * g); 
+  void drawSource(Graph * g, int x, int y); 
+  void drawTarget(Graph * g, int x, int y);
+  void drawPath(Graph * g, list<int> nodes); 
 };
 
 #endif /* MCPAINTER_H_ */

@@ -14,78 +14,78 @@ using namespace metrobotics;
 
 class Robot
 {
-	public:
-		Robot(PlayerCc::PlayerClient& pc, Behavior* bp = 0);
-		~Robot();
+ public:
+  Robot(PlayerCc::PlayerClient& pc, Behavior* bp = 0);
+  ~Robot();
 
-		// State management.
-		int  GetState() const { return mCurrentState; }
-		bool IsRegistered() const { return mSessionID >= 0; }
-		bool IsLocked() const { return mPossessed; }
+  // State management.
+  int  GetState() const { return mCurrentState; }
+  bool IsRegistered() const { return mSessionID >= 0; }
+  bool IsLocked() const { return mPossessed; }
+  
+  // Connect to the central server.
+  bool Connect(const std::string& hostname, unsigned short port);
+  void Disconnect();
+		
+  // Heart beat of the robot unit;
+  // Updates and maintains the internal state machine.
+  void Update();
+		
+  // Select robot behavior.
+  void SetBehavior(Behavior* bp) { mBehavior = bp; }
+		
+ private:
+  // Binding to Player server
+  PlayerCc::PlayerClient& mPlayerClient;
 
-		// Connect to the central server.
-		bool Connect(const std::string& hostname, unsigned short port);
-		void Disconnect();
+  // Player client proxies.
+  boost::shared_ptr<PlayerCc::Position2dProxy> mPosition2D;
 
-		// Heart beat of the robot unit;
-		// Updates and maintains the internal state machine.
-		void Update();
+  // Boost ASIO (for sockets)
+  boost::asio::io_service mIOService;
+  boost::asio::ip::tcp::socket mSocket;
 
-		// Select robot behavior.
-		void SetBehavior(Behavior* bp) { mBehavior = bp; }
+  // Robot properties.
+  std::string mTypeID;
+  std::string mNameID;
+  std::vector<std::string> mProvidesList;
+  
+  // Robot behavior.
+  Behavior* mBehavior;
 
-	private:
-		// Binding to Player server
-		PlayerCc::PlayerClient& mPlayerClient;
+  // State properties.
+  int  mCurrentState;
+  long mSessionID;
+  bool mPossessed;
 
-		// Player client proxies.
-		boost::shared_ptr<PlayerCc::Position2dProxy> mPosition2D;
+  // Internal timers.
+  static const double MAX_TIME_SILENCE = 60.0;
+  static const double MAX_TIME_STATE   = 10.0;
+  metrobotics::PosixTimer mSilenceTimer;
+  metrobotics::PosixTimer mStateTimer;
 
-		// Boost ASIO (for sockets)
-		boost::asio::io_service mIOService;
-		boost::asio::ip::tcp::socket mSocket;
+  // Internal buffers.
+  std::string mStringBuffer;
 
-		// Robot properties.
-		std::string mTypeID;
-		std::string mNameID;
-		std::vector<std::string> mProvidesList;
+  // Internal functions.
+  void init_state();
+  void init_provides();
+  bool msg_waiting() const;
+  bool read(std::stringstream& ss);
+  bool write(const std::stringstream& ss);
 
-		// Robot behavior.
-		Behavior* mBehavior;
-
-		// State properties.
-		int  mCurrentState;
-		long mSessionID;
-		bool mPossessed;
-
-		// Internal timers.
-		static const double MAX_TIME_SILENCE = 60.0;
-		static const double MAX_TIME_STATE   = 10.0;
-		metrobotics::PosixTimer mSilenceTimer;
-		metrobotics::PosixTimer mStateTimer;
-
-		// Internal buffers.
-		std::string mStringBuffer;
-
-		// Internal functions.
-		void init_state();
-		void init_provides();
-		bool msg_waiting() const;
-		bool read(std::stringstream& ss);
-		bool write(const std::stringstream& ss);
-
-		// State actions.
-		void do_state_change(int state);
-		void do_state_action_init();
-		void do_state_action_ack();
-		void do_state_action_idle();
-		void do_state_action_ping_send();
-		void do_state_action_pong_read();
-		void do_state_action_pong_send();
-		void do_state_action_cmd_proc();
-		void do_state_action_moving();
-		void do_state_action_pose();
-		void do_state_action_player();
+  // State actions.
+  void do_state_change(int state);
+  void do_state_action_init();
+  void do_state_action_ack();
+  void do_state_action_idle();
+  void do_state_action_ping_send();
+  void do_state_action_pong_read();
+  void do_state_action_pong_send();
+  void do_state_action_cmd_proc();
+  void do_state_action_moving();
+  void do_state_action_pose();
+  void do_state_action_player();
 };
 
 #endif

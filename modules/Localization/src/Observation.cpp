@@ -60,10 +60,11 @@ bool Observation::isWallBlocking(MapMarker marker, Position position) const{
   vector<MapWall>::iterator iter; 
   for( iter = walls.begin(); iter !=walls.end(); iter++ ){
     if ( get_line_intersection(iter->getX0(),iter->getY0(),iter->getX1(),iter->getY1(),mx,my,px,py,&ix,&iy) ){
-      cout << "wall extends from: (" << iter->getX0() << "," << iter->getY0() << ") to: (" 
+      /*cout << "wall extends from: (" << iter->getX0() << "," << iter->getY0() << ") to: (" 
 	   << iter->getX1() << "," << iter->getY1() << ")" << endl ;
       cout << "path extends from: (" << mx << "," << my << ") to: (" << px << "," << py << ")" << endl ;
       cout << "wall is blocking line of sight. Path and the wall intersect at: (" << ix << ", " << iy << ")" << endl;  
+      */
       return true;
     }
   }

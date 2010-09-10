@@ -13,22 +13,22 @@ using namespace metrobotics;
 using namespace std;
 
 Robot::Robot(PlayerClient& pc, Behavior* bp)
-:mPlayerClient(pc), mIOService(), mSocket(mIOService), mBehavior(bp)
+ :mPlayerClient(pc), mIOService(), mSocket(mIOService), mBehavior(bp)
 {
-	// Initialize robot attributes.
-	mTypeID = SID_SURVEYOR;
-	mNameID = UID_SURVEYOR_SRV10;
-
-	// Initialize robot capabilities.
-	init_provides();
-
-	// Initialize default state.
-	init_state();
+  // Initialize robot attributes.
+  mTypeID = SID_SURVEYOR;
+  mNameID = UID_SURVEYOR_SRV10;
+  
+  // Initialize robot capabilities.
+  init_provides();
+  
+  // Initialize default state.
+  init_state();
 }
 
 Robot::~Robot()
 {
-	Disconnect();
+  Disconnect();
 }
 
 bool Robot::Connect(const string& hostname, unsigned short port)

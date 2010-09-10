@@ -21,74 +21,74 @@ using namespace PlayerCc;
 
 class InterfaceToLocalization {
 public:
-	InterfaceToLocalization(Map * map, int fieldOfVision, PlayerClient * robot);
+  InterfaceToLocalization(Map * map, int fieldOfVision, PlayerClient * robot);
 
-	void update();
-	void move(Position relativePosition);
-	Position getPosition() {
-		robotMutex.lock();
-		Position pos = mc->getPosition();
-		robotMutex.unlock();
-		return pos;
-	}
+  void update();
+  void move(Position relativePosition);
+  Position getPosition() {
+    robotMutex.lock();
+    Position pos = mc->getPosition();
+    robotMutex.unlock();
+    return pos;
+  }
 
-	double getConfidence() {
-		robotMutex.lock();
-		double confidence = mc->getConfidence();
-		robotMutex.unlock();
-		return confidence;
-	}
+  double getConfidence() {
+    robotMutex.lock();
+    double confidence = mc->getConfidence();
+    robotMutex.unlock();
+    return confidence;
+  }
+  
+  MonteCarlo * getMonteCarlo() {
+    return mc;
+  }
+  
+  vector<Observation> getObservations() {
+    robotMutex.lock();
+    vector<Observation> observations = obs;
+    robotMutex.unlock();
+    
+    return observations;
+  }
 
-	MonteCarlo * getMonteCarlo() {
-		return mc;
-	}
+  void setObservationVariance(double observationVariance) {
+    this->observationVariance = observationVariance;
+  }
 
-	vector<Observation> getObservations() {
-		robotMutex.lock();
-		vector<Observation> observations = obs;
-		robotMutex.unlock();
-
-		return observations;
-	}
-
-	void setObservationVariance(double observationVariance) {
-		this->observationVariance = observationVariance;
-	}
-
-	bool isMoving();
+  bool isMoving();
 
 protected:
-	MonteCarlo * mc;
-	PlayerClient * robot;
-	CameraProxy * cp;
-	BlobfinderProxy * bfp;
-	Position2dProxy * p2d;
+  MonteCarlo * mc;
+  PlayerClient * robot;
+  CameraProxy * cp;
+  BlobfinderProxy * bfp;
+  Position2dProxy * p2d;
+  
+  boost::mutex robotMutex;
 
-	boost::mutex robotMutex;
+  Position destination;
+  Position cumulativeMove;
+  Map * map;
+  int fov;						//the field of vision in degrees
+  vector<Observation> obs;
+  double observationVariance;
+  
+  double radiansToDegrees(double rad);
+  double getAngle(double x);
 
-	Position destination;
-	Position cumulativeMove;
-	Map * map;
-	int fov;						//the field of vision in degrees
-	vector<Observation> obs;
-	double observationVariance;
+  void readData();
+  void updateObservations();
+  Move getLastMove();
 
-	double radiansToDegrees(double rad);
-	double getAngle(double x);
+  int getBlobColor(player_blobfinder_blob blob);
 
-	void readData();
-	void updateObservations();
-	Move getLastMove();
+  bool positionEqual(Position p1, Position p2);
 
-	int getBlobColor(player_blobfinder_blob blob);
+  bool blobOnTopOf(player_blobfinder_blob top, player_blobfinder_blob bottom);
 
-	bool positionEqual(Position p1, Position p2);
-
-	bool blobOnTopOf(player_blobfinder_blob top, player_blobfinder_blob bottom);
-
-	vector<Observation> findMarkersFromBlobs(
-			vector<player_blobfinder_blob>& topBlobs, vector<
-					player_blobfinder_blob>& bottomBlobs, string id);
+  vector<Observation> findMarkersFromBlobs( vector<player_blobfinder_blob>& topBlobs, 
+					    vector<player_blobfinder_blob>& bottomBlobs, 
+					    string id);
 };
 
 #endif /* INTERFACE_TO_LOCALIZATION_H_ */

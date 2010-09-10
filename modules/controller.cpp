@@ -37,68 +37,69 @@ double goalX;
 double goalY;
 
 void init(void) {
-	glClearColor(0.0, 0.0, 0.0, 0.0);
-	glShadeModel(GL_FLAT);
+  glClearColor(0.0, 0.0, 0.0, 0.0);
+  glShadeModel(GL_FLAT);
 }
 
 void updateRobot() {
-	rbt->update();
+  //cout << "calling interface to localization update() func" << endl;
+  rbt->update();
 }
 
 //this method is called every couple of seconds and updates virtual robot position and
 //MC.  Then it displays the current state of MC by indirectly calling "draw()".
 void displayObservations(int unused) {
-	updateRobot();
-	glutPostRedisplay();
-	glutTimerFunc(20, displayObservations, 0);
+  updateRobot();
+  glutPostRedisplay();
+  glutTimerFunc(20, displayObservations, 0);
 }
 
 //called when the window changes position and size
 void reshape(int w, int h) {
-	glViewport(0, 0, (GLsizei) w, (GLsizei) h);
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-	gluOrtho2D(-10, myMap->getLength() + 10, -10, myMap->getHeight() + 10);
+  glViewport(0, 0, (GLsizei) w, (GLsizei) h);
+  glMatrixMode(GL_PROJECTION);
+  glLoadIdentity();
+  gluOrtho2D(-10, myMap->getLength() + 10, -10, myMap->getHeight() + 10);
 }
 
-//this starts the simulation when the user double clicks on the window.
+//this starts the simulation when the user clicks on the window.
 void mouse(int button, int state, int x, int y) {
-	if (button == GLUT_LEFT_BUTTON) {
-		if (state == GLUT_DOWN)
-			glutTimerFunc(1000, displayObservations, 0);
-	}
+  if (button == GLUT_LEFT_BUTTON) {
+    if (state == GLUT_DOWN)
+      glutTimerFunc(1000, displayObservations, 0);      
+  }
 }
 
 void draw(void) {
-	MCPainter painter;
-	glClear(GL_COLOR_BUFFER_BIT);
+  MCPainter painter;
+  glClear(GL_COLOR_BUFFER_BIT);
 
-	painter.drawMarkers(myMap);
-	painter.drawWalls(myMap);
-	painter.drawParticles(debugger);
-	painter.drawObservations(debugger, mc);
-	painter.drawPosition(mc, Position(0, 0, 0));
-	painter.drawGoal(goalX, goalY);
-	painter.drawNodes(g); 
-	painter.drawEdges(g);
-	if ( planner->getSource().getID() != Node::invalid_node_index )
-	  painter.drawSource(g, planner->getSource().getX(), planner->getSource().getY()); 
-	if ( planner->getTarget().getID() != Node::invalid_node_index )
-	  painter.drawTarget(g, planner->getTarget().getX(), planner->getTarget().getY());
-	if ( !planner->getPath().empty() )
-	  painter.drawPath(g, planner->getPath());
-	glutSwapBuffers();
+  painter.drawMarkers(myMap);
+  painter.drawWalls(myMap);
+  painter.drawParticles(debugger);
+  painter.drawObservations(debugger, mc);
+  painter.drawPosition(mc, Position(0, 0, 0));
+  painter.drawGoal(goalX, goalY);
+  painter.drawNodes(g); 
+  painter.drawEdges(g);
+  if ( planner->getSource().getID() != Node::invalid_node_index )
+    painter.drawSource(g, planner->getSource().getX(), planner->getSource().getY()); 
+  if ( planner->getTarget().getID() != Node::invalid_node_index )
+    painter.drawTarget(g, planner->getTarget().getX(), planner->getTarget().getY());
+  if ( !planner->getPath().empty() )
+    painter.drawPath(g, planner->getPath());
+  glutSwapBuffers();
 }
 
 
 void createMap_defaultField() {
-	myMap = new Map(500, 400);
-
-	// outer walls
-	myMap->addWall(MapWall("wall1", 0, 0, 0, 400)); 
-	myMap->addWall(MapWall("wall2", 0, 0, 500, 0)); 
-	myMap->addWall(MapWall("wall3", 500, 0, 500, 400)); 
-	myMap->addWall(MapWall("wall4", 0, 400, 500, 400)); 
+  myMap = new Map(500, 400);
+  
+  // outer walls
+  myMap->addWall(MapWall("wall1", 0, 0, 0, 400)); 
+  myMap->addWall(MapWall("wall2", 0, 0, 500, 0)); 
+  myMap->addWall(MapWall("wall3", 500, 0, 500, 400)); 
+  myMap->addWall(MapWall("wall4", 0, 400, 500, 400)); 
 }
 
 void readMapFile(ifstream& mFile) {
@@ -192,7 +193,7 @@ int main(int argc, char **argv)
 
   if ( argc == 1 ) {
     cout << "no arguments provided" << endl;
-    mapFile.open("./player_config_files/map.conf", ios::in );
+    mapFile.open("../player_config_files/map.conf", ios::in );
     if( !mapFile ) cout << "can't open file" << endl;
     readMapFile(mapFile); 
     mapFile.close();
@@ -286,7 +287,7 @@ int main(int argc, char **argv)
 
     // at the moment, program never gets to this point due to glutMainLoop()
 
-    // select a behavior
+    /*    // select a behavior
     WallAvoid behavior(pc);
     robot.SetBehavior(&behavior);
     
@@ -300,7 +301,8 @@ int main(int argc, char **argv)
       
       // Take a quick breath.
       usleep(1);
-    }
+      }
+    */
 
   } catch (PlayerError) {
     cerr << "Failed to establish a connection to the Player Server.\n"

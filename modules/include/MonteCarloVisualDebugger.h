@@ -12,15 +12,15 @@
 
 class MonteCarloVisualDebugger : public MonteCarloDebugger{
 public:
-	MonteCarloVisualDebugger();
+  MonteCarloVisualDebugger();
 
-	void debug();
+  void debug();
 
-	void static init(void);
-	void static reshape(int w, int h);
-//	void static draw(void);
+  void static init(void);
+  void static reshape(int w, int h);
+  //	void static draw(void);
 
-private:
+ private:
 };
 
 #endif /* MONTECARLOVISUALDEBUGGER_H_ */
