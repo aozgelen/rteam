@@ -1,0 +1,7 @@
+This document aims give an idea about how the makefiles interact in this project and to describe their current behavior.
+
+1) makefile in the modules directory is the main makefile of the project. 
+
+2) when 'make' command is invoked the first time, it will build 3 libraries ( Localization Metroutil and PathPlanner ) into project lib directory ( ../lib ), will compile all the source files within the root of the modules directory and will link the libraries and .o files into an output executable (controller) 
+
+3) if any change is made within subdirectories contributing to any of the libraries, for that change to take effect they have to be rebuild within that subdirectory ( this will recompile the source and deploy the library to the project lib directory ). This means you have to make an extra effort to make the changes effective for the overall project. The reason for this is to avoid synchronization problems. As an example, when a programmer is working on the library and another one writing code that depends on that library. I'm making no claims about this being the best approach but this is the case at the moment. A better solution to this may be an agreed upon strategy to use Git.   

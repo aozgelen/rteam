@@ -1,0 +1,4 @@
+# ignore the following file extensions when staging
+*.o
+*~
+*.bak

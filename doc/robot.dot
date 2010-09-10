@@ -1,0 +1,60 @@
+digraph states {
+
+rankdir=LR;
+
+start     [shape="point"];
+exit      [shape="point"];
+INIT      [fontname="arial" URL="http://google.com"];
+ACK       [fontname="arial"];
+IDLE      [fontname="arial"];
+PINGSEND  [label="PING SEND",fontname="arial"];
+PONGREAD  [label="PONG READ",fontname="arial"];
+PONGSEND  [label="PONG SEND",fontname="arial"];
+CMDPROC   [label="CMD PROC",fontname="arial"];
+MOVING    [fontname="arial"];
+POSE      [fontname="arial"];
+QUIT      [fontname="arial"];
+
+start -> INIT        [label="start",fontname="Times-Italic",fontsize=10];
+
+INIT -> INIT         [label="failure",fontname="Times-Italic",fontsize=10];
+INIT -> QUIT         [label="timeout",fontname="Times-Italic",fontsize=10];
+INIT -> ACK          [label="send INIT",fontname="Times-Italic",fontsize=10];
+
+ACK -> INIT          [label="timeout",fontname="Times-Italic",fontsize=10];
+ACK -> INIT          [label="failure",fontname="Times-Italic",fontsize=10];
+ACK -> IDLE          [label="read ACK",fontname="Times-Italic",fontsize=10];
+ACK -> QUIT          [label="rejected",fontname="Times-Italic",fontsize=10];
+
+IDLE -> CMDPROC      [label="read msg",fontname="Times-Italic",fontsize=10];
+IDLE -> PINGSEND     [label="timeout",fontname="Times-Italic",fontsize=10];
+
+PINGSEND -> INIT     [label="timeout",fontname="Times-Italic",fontsize=10];
+PINGSEND -> PINGSEND [label="failure",fontname="Times-Italic",fontsize=10];
+PINGSEND -> PONGREAD [label="send PING",fontname="Times-Italic",fontsize=10];
+
+PONGREAD -> IDLE     [label="read PONG",fontname="Times-Italic",fontsize=10];
+PONGREAD -> PINGSEND [label="timeout",fontname="Times-Italic",fontsize=10];
+PONGREAD -> PINGSEND [label="failure",fontname="Times-Italic",fontsize=10];
+
+PONGSEND -> IDLE     [label="send PONG",fontname="Times-Italic",fontsize=10];
+PONGSEND -> PONGSEND [label="failure",fontname="Times-Italic",fontsize=10];
+PONGSEND -> PINGSEND [label="timeout",fontname="Times-Italic",fontsize=10];
+
+CMDPROC -> PONGSEND [label="msg=PING",fontname="Times-Italic",fontsize=10];
+CMDPROC -> IDLE     [label="msg=LOCK",fontname="Times-Italic",fontsize=10];
+CMDPROC -> IDLE     [label="msg=UNLOCK",fontname="Times-Italic",fontsize=10];
+CMDPROC -> MOVING   [label="msg=MOVE",fontname="Times-Italic",fontsize=10];
+CMDPROC -> POSE     [label="msg=ASKPOSE",fontname="Times-Italic",fontsize=10];
+CMDPROC -> QUIT     [label="msg=QUIT",fontname="Times-Italic",fontsize=10];
+CMDPROC -> IDLE     [label="failure",fontname="Times-Italic",fontsize=10];
+
+MOVING -> IDLE      [label="failure: send ERROR",fontname="Times-Italic",fontsize=10];
+MOVING -> IDLE      [label="success: send MOVING",fontname="Times-Italic",fontsize=10];
+
+POSE -> IDLE        [label="failure: send ERROR",fontname="Times-Italic",fontsize=10];
+POSE -> IDLE        [label="success: send POSE",fontname="Times-Italic",fontsize=10];
+
+QUIT -> exit        [label="exit",fontname="Times-Italic",fontsize=10];
+
+}
