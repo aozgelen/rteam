@@ -73,11 +73,14 @@ void Loiter::Stop()
 
 void Loiter::Update()
 {
-  if( is_wall_visible(mBlobfinder) ) {
+
+  /*if( is_wall_visible(mBlobfinder) ) {
     Stop(); 
     cout << "Wall in front" << endl ; 
-    //exit(1);
-  };
+    return;
+    }*/
+
+  /*
   mIsMobile = is_moving(mPosition2D);
   if (!mInitState && mIsMobile) {
     mPosition2D.SetSpeed(0, 0);
@@ -99,4 +102,5 @@ void Loiter::Update()
     mPosition2D.SetSpeed(0, 0);
     mInitState = false;
   }
+  */
 }

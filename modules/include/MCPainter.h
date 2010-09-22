@@ -17,6 +17,7 @@
 #include "PathPlanner.h"
 
 class MCPainter {
+  void drawMarkerPatch(MapMarker,char,int,int,int,int);
 public:
   MCPainter();
   

@@ -2,6 +2,7 @@
 #include "robot.h"
 #include "loiter.h"
 #include "wallAvoid.h"
+#include "BehaviorTester.h"
 
 #include "libplayerc++/playerc++.h"
 using namespace PlayerCc;
@@ -62,30 +63,83 @@ void reshape(int w, int h) {
   gluOrtho2D(-10, myMap->getLength() + 10, -10, myMap->getHeight() + 10);
 }
 
-//this starts the simulation when the user clicks on the window.
+void keyboard(unsigned char key, int x, int y){
+  cout << "Key pressed " << endl;
+  if (key == 'w' || key == 'W')
+    rbt->move(Position(10, 0, 0));
+  if (key == 's' || key == 'S')
+    rbt->move(Position(-10, 0, 0));
+  if (key == 'a' || key == 'A')
+    rbt->move(Position(0, 0, Utils::toRadians(22.5)));
+  if (key == 'd' || key == 'D')
+    rbt->move(Position(0, 0, Utils::toRadians(-22.5)));
+}
+
+int getWinX(int x) {
+  int wx = ( (double) (glutGet(GLUT_WINDOW_WIDTH) - 40)/ (double) myMap->getLength() ) * x + 20; 
+  return wx; 
+}
+
+int getWinY(int y) {
+  int wy = ( myMap->getHeight() - y ) * ( (double)( glutGet(GLUT_WINDOW_HEIGHT)- 20 ) / (double) myMap->getHeight() ) + 10;
+  return wy;
+}
+
+int getMapX(int x) {
+  int mx = ( x - 20 ) * ( (double) myMap->getLength()/ (double) (glutGet(GLUT_WINDOW_WIDTH)-40)); 
+  return mx; 
+}
+
+int getMapY(int y){
+  int my = myMap->getHeight() - (( y - 10 ) * ((double) myMap->getHeight() /(double) (glutGet(GLUT_WINDOW_HEIGHT) - 20) ));
+  return my;
+}
+
 void mouse(int button, int state, int x, int y) {
   if (button == GLUT_LEFT_BUTTON) {
-    if (state == GLUT_DOWN)
-      glutTimerFunc(1000, displayObservations, 0);      
+    if (state == GLUT_DOWN){
+      Position p = rbt->getPosition();
+      
+      Node s(1, p.getX(), p.getY()); 
+      planner->setSource(s); 
+
+      cout << "clicked point: (" << x << "," << y << ")" << endl;
+
+      Node t(1, getMapX(x), getMapY(y)); 
+      planner->setTarget(t); 
+      planner->calcPath();
+    }			
   }
+}
+
+void drawFog(void){
+  cout << "setting overlay" << endl;
+  glutUseLayer(GLUT_OVERLAY);
+  glClear(GL_COLOR_BUFFER_BIT);
+  glClearColor(0.25,0.25,0.25,0.25); // set current color to black
+  glutSwapBuffers(); 
 }
 
 void draw(void) {
   MCPainter painter;
+  glutUseLayer(GLUT_NORMAL);
   glClear(GL_COLOR_BUFFER_BIT);
+  glClearColor(1,1,1,1); // set current color to white
 
   painter.drawMarkers(myMap);
   painter.drawWalls(myMap);
   painter.drawParticles(debugger);
-  painter.drawObservations(debugger, mc);
-  painter.drawPosition(mc, Position(0, 0, 0));
+  painter.drawObservations(debugger, mc);       // draws the lines from position to markers
+  painter.drawPosition(mc, Position(0, 0, 0));  // draws the position of the robot
   painter.drawGoal(goalX, goalY);
   painter.drawNodes(g); 
   painter.drawEdges(g);
-  if ( planner->getSource().getID() != Node::invalid_node_index )
+  if ( planner->getSource().getID() != Node::invalid_node_index ){
     painter.drawSource(g, planner->getSource().getX(), planner->getSource().getY()); 
-  if ( planner->getTarget().getID() != Node::invalid_node_index )
+  }
+  if ( planner->getTarget().getID() != Node::invalid_node_index ){
     painter.drawTarget(g, planner->getTarget().getX(), planner->getTarget().getY());
+  }
   if ( !planner->getPath().empty() )
     painter.drawPath(g, planner->getPath());
   glutSwapBuffers();
@@ -239,8 +293,10 @@ int main(int argc, char **argv)
     // connect to the player server
     PlayerClient pc(player_hostname, player_port);
 
+    rbt = new Surveyor(myMap, &pc);  // this sets the interface to localization
+       
     // startup the robot
-    Robot robot(pc);
+    Robot robot(pc, rbt);
     
     // connect robot to the central server
     if (!robot.Connect(server_hostname, server_port)) {
@@ -250,8 +306,6 @@ int main(int argc, char **argv)
       exit(1);
     }
     
-    rbt = new Surveyor(myMap, &pc);  // this sets the interface to localization
-       
     mc = rbt->getMonteCarlo();
     
     Utils::initRandom();
@@ -264,8 +318,27 @@ int main(int argc, char **argv)
     Node n; 
     planner = new PathPlanner(*g,n,n); 
 
-    PathTester tt(planner);
-    boost::thread * pathThread = new boost::thread(tt);
+    // select a behavior
+    /*Loiter behavior(pc);
+    robot.SetBehavior(&behavior);
+    
+    while (robot.GetState() != STATE_QUIT) {
+
+      // Update Player interfaces.
+      pc.ReadIfWaiting();
+      
+      // Update the robot.
+      robot.Update();
+      
+      // Take a quick breath.
+      usleep(1);
+      }*/
+
+    //BehaviorTester bt(&robot, &pc); 
+    //boost::thread * behaviorThread = new boost::thread(bt); 
+
+    //PathTester tt(planner);
+    //boost::thread * pathThread = new boost::thread(tt);
 
     if ( visualDEBUG) {
       debugger = new MonteCarloVisualDebugger();
@@ -277,32 +350,19 @@ int main(int argc, char **argv)
       glutInitWindowPosition(100, 100);
       glutCreateWindow(argv[0]);
       init();
+      //glutEstablishOverlay();
+      // register callbacks
       glutDisplayFunc(draw);
       glutReshapeFunc(reshape);
       glutMouseFunc(mouse);
-      //glutFullScreen();
+      glutKeyboardFunc(keyboard);
+      //glutOverlayDisplayFunc(drawFog);
+      //glutPostOverlayRedisplay();
+     
+      glutSetCursor(GLUT_CURSOR_CROSSHAIR);
+      glutTimerFunc(100, displayObservations, 0);      
       glutMainLoop();  
     }
-
-
-    // at the moment, program never gets to this point due to glutMainLoop()
-
-    /*    // select a behavior
-    WallAvoid behavior(pc);
-    robot.SetBehavior(&behavior);
-    
-    // enter main loop
-    while (robot.GetState() != STATE_QUIT) {
-      // Update Player interfaces.
-      pc.ReadIfWaiting();
-      
-      // Update the robot.
-      robot.Update();
-      
-      // Take a quick breath.
-      usleep(1);
-      }
-    */
 
   } catch (PlayerError) {
     cerr << "Failed to establish a connection to the Player Server.\n"

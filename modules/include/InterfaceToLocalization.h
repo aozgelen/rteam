@@ -56,6 +56,8 @@ public:
   }
 
   bool isMoving();
+  
+  void printBlobInfo(player_blobfinder_blob);
 
 protected:
   MonteCarlo * mc;
@@ -86,9 +88,17 @@ protected:
 
   bool blobOnTopOf(player_blobfinder_blob top, player_blobfinder_blob bottom);
 
-  vector<Observation> findMarkersFromBlobs( vector<player_blobfinder_blob>& topBlobs, 
-					    vector<player_blobfinder_blob>& bottomBlobs, 
-					    string id);
+  vector<Observation> findRoomMarkersFromBlobs( vector<player_blobfinder_blob>& topBlobs, 
+						vector<player_blobfinder_blob>& middleBlobs, 
+						vector<player_blobfinder_blob>& bottomBlobs, 
+						string id);
+
+  vector<Observation> findCornerMarkersFromBlobs( vector<player_blobfinder_blob>& topBlobs, 
+						  vector<player_blobfinder_blob>& bottomBlobs, 
+						  string id);
+
+  vector<Observation> findEnteranceMarkersFromBlobs( vector<player_blobfinder_blob>& blobs, 
+						     string id);
 };
 
 #endif /* INTERFACE_TO_LOCALIZATION_H_ */

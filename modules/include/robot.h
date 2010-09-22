@@ -4,6 +4,7 @@
 #include "definitions.h"
 #include "behavior.h"
 #include "metrobotics.h"
+#include "InterfaceToLocalization.h"
 #include "libplayerc++/playerc++.h"
 #include "boost/asio.hpp"
 #include "boost/shared_ptr.hpp"
@@ -15,7 +16,7 @@ using namespace metrobotics;
 class Robot
 {
  public:
-  Robot(PlayerCc::PlayerClient& pc, Behavior* bp = 0);
+  Robot(PlayerCc::PlayerClient& pc, InterfaceToLocalization * i, Behavior* bp = 0);
   ~Robot();
 
   // State management.
@@ -52,6 +53,9 @@ class Robot
   
   // Robot behavior.
   Behavior* mBehavior;
+
+  // Interfact to Localization
+  InterfaceToLocalization * itl;
 
   // State properties.
   int  mCurrentState;

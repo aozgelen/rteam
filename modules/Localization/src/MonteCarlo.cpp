@@ -53,8 +53,7 @@ void MonteCarlo::debug(vector<Observation>& obs) {
 }
 
 Position MonteCarlo::getPosition() {
-	MCLPositionEstimator estimator = MCLPositionEstimator(map->length,
-			map->height);
+	MCLPositionEstimator estimator = MCLPositionEstimator(map->length, map->height);
 	position = estimator.getPosition(particles, confidence);
 	return position;
 }

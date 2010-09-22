@@ -18,8 +18,6 @@ class Loiter : public Behavior
 		PlayerCc::Position2dProxy mPosition2D;
 		PlayerCc::BlobfinderProxy mBlobfinder;
 
-		
-
 		// Internal properties.
 		bool mInitState;
 		bool mIsMobile;

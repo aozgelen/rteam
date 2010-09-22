@@ -2,7 +2,7 @@
  * MCLPositionEstimator.h
  *
  *  Created on: Jan 21, 2009
- *      Author: Geotty
+ *  Author: Geotty
  */
 #include <vector>
 #include <map>

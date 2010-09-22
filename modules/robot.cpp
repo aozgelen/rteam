@@ -12,8 +12,8 @@ using namespace PlayerCc;
 using namespace metrobotics;
 using namespace std;
 
-Robot::Robot(PlayerClient& pc, Behavior* bp)
- :mPlayerClient(pc), mIOService(), mSocket(mIOService), mBehavior(bp)
+Robot::Robot(PlayerClient& pc, InterfaceToLocalization * i, Behavior* bp)
+  :mPlayerClient(pc), mIOService(), mSocket(mIOService), itl(i), mBehavior(bp)
 {
   // Initialize robot attributes.
   mTypeID = SID_SURVEYOR;
@@ -630,12 +630,17 @@ void Robot::do_state_action_pose()
 		return;
 	}
 
-	// Grab the pose data from the Player server.
+	// Grab the pose data from the //Player server.
 	double xp = 0, yp = 0, ap = 0, confidence = 0;
 	try {
-		xp = mPosition2D->GetXPos();
-		yp = mPosition2D->GetYPos();
-		ap = mPosition2D->GetYaw();
+	  //xp = mPosition2D->GetXPos();
+	  //	yp = mPosition2D->GetYPos();
+	  //	ap = mPosition2D->GetYaw();
+	  Position p = itl->getPosition();  
+	  double conf = itl->getConfidence();
+	  xp = p.getX(); 
+	  yp = p.getY(); 
+	  ap = p.getTheta();
 		// TODO: fill in confidence value.
 	} catch (PlayerError) {
 		stringstream oss;

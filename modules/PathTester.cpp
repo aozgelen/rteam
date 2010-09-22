@@ -11,13 +11,14 @@ using namespace std;
 
 void PathTester::operator()() {
   while (true) {
-    cout << "Enter source x: " ; 
+    
+    cout << "Enter start x: " ; 
     int xs; 
     cin >> xs; 
-    cout << "Enter source y: " ; 
+    cout << "Enter start y: " ; 
     int ys; 
     cin >> ys;
-    
+
     Node ns(1, xs, ys); 
     planner->setSource(ns);
 
