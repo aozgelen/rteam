@@ -655,12 +655,13 @@ void *posebeat( void *arg ) {
 
     for (list<robot_p>::iterator i = robots.begin();
          i != robots.end(); ++i) {
-      if((*i)->get_type_id() != "gui"){
+      if((*i)->get_type_id() != "gui" && (*i)->get_type() != ""){
 	  session_id = (*i)->get_session_id();
 	  oss << session_id;
 	  p += command;
 	  p += " ";
 	  p += oss.str();
+	  push_paint("PUSHED", p, (*i)->get_session_id(), (*i)->get_name());
 	  (*i)->push_msg(p);
 	  p = "";
 	  oss.str("");
@@ -882,7 +883,7 @@ int main( int argc, char *argv[] ) {
   // NCURSES setup
   if(t_args->interactive){
     interactive_setup();
-  } // end NCURSES setup
+  }
   
   // create server socket
   comm = new commServer(t_args->ip, t_args->port);

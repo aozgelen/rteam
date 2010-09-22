@@ -4,6 +4,7 @@ WINDOW *title_bar;
 WINDOW *output;
 WINDOW *status_bar;
 WINDOW *filter_menu;
+WINDOW *console;
 
 bool was_resized = false;
 pthread_mutex_t paint_mutex;
@@ -262,6 +263,7 @@ void *paintbrush( void *arg ) {
   int ch;
   bool paused = false;
   bool filter_visible = false;
+  bool console_visible = false;
   string buffer;
   int center;
   ofstream log;
@@ -274,12 +276,17 @@ void *paintbrush( void *arg ) {
   char paused_msg[] = "[ PAUSED ]";
 
   regex_t regx;
-  int current_pos = 0;
+  int x_coord = 0;
+  int y_coord = 0;
   const int input_size = 40;
+  const int console_input_size = 40;
   char input_buffer[input_size];
+  char console_buffer[console_input_size];
 
   int x, y;
   int height, width;
+
+  int dummy = 0;
 
   getmaxyx(stdscr, y, x); 
   center = x - sizeof(MAIN_TITLE);
@@ -304,8 +311,8 @@ void *paintbrush( void *arg ) {
 
     if(was_resized){
       was_resized = !was_resized;
-      get_term_size(&width, &height);
-      resizeterm(width, height);
+      //get_term_size(&width, &height);
+      //resizeterm(width, height);
       endwin();
       refresh();
       touchwin(output);
@@ -314,17 +321,16 @@ void *paintbrush( void *arg ) {
 
     pthread_mutex_unlock( &paint_refresh );
 
-
     if(filter_visible){
-        if(ch == 27){ // Escape Key
+        if(ch == ESCAPE_KEY){ // Escape Key
           filter_visible = false;
           touchwin(output);
           refresh();
-        }else if(ch == 10){ // Enter Key
+        }else if(ch == ENTER_KEY){ // Enter Key
           filter_visible = false;
-          input_buffer[current_pos] = '\0';
+          input_buffer[x_coord] = '\0';
 
-          if(current_pos == 0){
+          if(x_coord == 0){
               regcomp(&regx, ".", REG_EXTENDED | REG_ICASE);
           }else{
               regcomp(&regx, input_buffer, REG_EXTENDED | REG_ICASE);
@@ -332,30 +338,77 @@ void *paintbrush( void *arg ) {
 
           touchwin(output);
           refresh();
-        }else if(ch == 127){ // Backspace Key
-          if(current_pos > 0){
-              wmove(filter_menu, 1, 9 + current_pos);
+        }else if(ch == BACKSPACE_KEY){ // Backspace Key
+          if(x_coord > 0){
+              wmove(filter_menu, 1, 9 + x_coord);
               waddch(filter_menu, ' ');
-              input_buffer[current_pos] = '\0';
-              --current_pos;
+              input_buffer[x_coord] = '\0';
+              --x_coord;
           }else{
 	    flash();
 	  }
-        }else if(ch == 21){ // Control + U: Erase line
+        }else if(ch == CTRL_U){ // Control + U: Erase line
             werase(filter_menu);
             mvwprintw(filter_menu, 1, 2,  "%s", "Filter: ");
             box(filter_menu, 0, 0);
-            current_pos = 0;
+            x_coord = 0;
 	}else if(ch != ERR){
-          if(current_pos < input_size){
-              wmove(filter_menu, 1, 10 + current_pos);
+          if(x_coord < input_size){
+              wmove(filter_menu, 1, 10 + x_coord);
               waddch(filter_menu,ch);
-              input_buffer[current_pos] = (char) ch;
-              ++current_pos;
+              input_buffer[x_coord] = (char) ch;
+              ++x_coord;
           }else{
             flash();
           }
         }
+
+    }else if(console_visible){
+        if(ch == ESCAPE_KEY || ch == '~'){ // Escape Key or tilde
+          console_visible = false;
+          touchwin(output);
+          refresh();
+        }else if(ch == BACKSPACE_KEY){ // Backspace Key
+          if(x_coord > 0){
+	      getyx(console, y_coord, dummy);
+              wmove(console, y_coord, 1 + x_coord);
+              waddch(console, ' ');
+              console_buffer[x_coord] = '\0';
+              --x_coord;
+          }else{
+	    flash();
+	  }
+        }else if(ch == CTRL_U){ // Control + U: Erase line
+	    getyx(console, y_coord, x_coord);
+	    wmove(console, y_coord, 1);
+	    wclrtoeol(console);
+	    //refresh();
+            x_coord = 0;
+        }else if(ch == ENTER_KEY){ // Enter Key
+          console_buffer[x_coord] = '\0';
+	  ++y_coord;
+	  x_coord = 0;
+	  wprintw(console, "\nRecieved: %s", console_buffer);
+	  wprintw(console, "\n> ");
+
+	  // Pass console buffer to warden
+
+          touchwin(output);
+          refresh();
+
+	}else if(ch != ERR){
+          if(x_coord < console_input_size){
+	      getyx(console, y_coord, dummy);
+              wmove(console, y_coord, 2 + x_coord);
+              waddch(console, ch);
+              console_buffer[x_coord] = (char) ch;
+              ++x_coord;
+          }else{
+            flash();
+          }
+	}
+
+
 
       }else{
           if(ch == ' '){
@@ -378,7 +431,15 @@ void *paintbrush( void *arg ) {
             werase(filter_menu);
             mvwprintw(filter_menu, 1, 2,  "%s", "Filter: ");
             box(filter_menu, 0, 0);
-            current_pos = 0;
+            x_coord = 0;
+          }else if(ch == '~'){
+            console_visible = !console_visible;
+            werase(console);
+            mvwprintw(console, 0, 0,  "> ");
+	    touchwin(output);
+            x_coord = 0;
+            y_coord = 0;
+	    refresh();
 
           }else if(ch == 'q' || ch == 'Q'){
             endwin();
@@ -391,6 +452,7 @@ void *paintbrush( void *arg ) {
     touchwin(status_bar);
     touchwin(title_bar);
     touchwin(filter_menu);
+    touchwin(console);
 
     if(!paused){
       wnoutrefresh(output);
@@ -398,6 +460,10 @@ void *paintbrush( void *arg ) {
 
     if(filter_visible){
       wnoutrefresh(filter_menu);
+    }
+
+    if(console_visible){
+	wnoutrefresh(console);
     }
 
     wnoutrefresh(title_bar);
@@ -438,6 +504,7 @@ void interactive_setup(){
       title_bar = newwin(1, x, 0, 0); 
       output = newwin(y - 1, x, 2, 0); 
       status_bar = newwin(1, x, y - 1, 0); 
+      console = newwin(y / 4, x, y - (y/3) + 1, 0); 
       filter_menu =
 	  newwin(3, x - x / 4 , (y - 3) / 2, ( x - (x - x / 4)) / 2 );
 
@@ -455,6 +522,7 @@ void interactive_setup(){
 
       scrollok(output, TRUE);
       nodelay(output, TRUE);
+      scrollok(console, TRUE);
       noecho();
       nodelay(stdscr, TRUE);
       curs_set(0);
@@ -462,8 +530,9 @@ void interactive_setup(){
       wbkgd(title_bar, COLOR_PAIR(11) | A_BOLD | A_DIM );
       wbkgd(status_bar, COLOR_PAIR(1) | A_BOLD | A_DIM );
       wbkgd(filter_menu, COLOR_PAIR(11) | A_BOLD | A_DIM );
+      wbkgd(console, COLOR_PAIR(11) | A_BOLD | A_DIM );
 
-      mvwprintw(title_bar, 0, center,  "%s", MAIN_TITLE);
+      mvwprintw(title_bar, 2, center,  "%s", MAIN_TITLE);
 
       wprintw(status_bar, "[ 00:00:00 ]");
       wprintw(status_bar, "%50s %d", "Clients Connected:", 0);

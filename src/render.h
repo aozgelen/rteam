@@ -20,6 +20,11 @@
 #define MAIN_TITLE "Skygrid 1.0"
 #define MIN_SCREEN_WIDTH 50
 
+#define ESCAPE_KEY 27
+#define ENTER_KEY 10
+#define BACKSPACE_KEY 127
+#define CTRL_U 21
+
 using namespace std;
 
 struct thread_args{
