@@ -1,5 +1,5 @@
 CPP 		= g++
-PROJECT_LIB	= ../../lib/
+PROJECT_LIB	= ../lib/
 ARCHIVER 	= ar
 
 OUTPUT 		= libPathPlanner.a

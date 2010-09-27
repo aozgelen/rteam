@@ -22,7 +22,7 @@ OPENRSDK_ROOT=/usr/local/OPEN_R_SDK
 #CXX= /usr/local/OPEN_R_SDK/bin/mipsel-linux-g++
 #DESTINATION_LIB=../../libsMips/
 
-DESTINATION_LIB=../../lib/
+DESTINATION_LIB=../lib/
 ARCHIVER = ar
 
 

@@ -2,7 +2,7 @@
 export SHELL 	= /bin/bash
 export CPP    	= g++
 
-LIB_DIR 	= ../lib
+LIB_DIR 	= lib
 
 # Dependency: MetroUtil
 METROUTIL     	= $(LIB_DIR)/libMetrobotics.a
@@ -22,24 +22,47 @@ PATHPLAN_DIR	= ./PathPlanner
 PATHPLAN_LIB	= $(LIB_DIR)
 PATHPLAN_INC	= $(PATHPLAN_DIR)/include
 
-INCLUDE_DIR 	= include
-SRC_DIR		= src
+CONTROLLER	= ./Controller
+CONTROLLER_SRC 	= $(CONTROLLER)/src
+CONTROLLER_INC	= $(CONTROLLER)/include
+VISDEBUG	= ./VisualDebugger
+VISDEBUG_SRC	= $(VISDEBUG)/src
+VISDEBUG_INC	= $(VISDEBUG)/include
 
-VPATH 		= $(SRC_DIR) 
+VPATH 		= $(VISDEBUG_SRC) $(CONTROLLER_SRC) 
 
 # Options
-INC_FLAGS	= -I$(INCLUDE_DIR) -I$(METROUTIL_INC) -I$(LOCALIZE_INC) -I$(PATHPLAN_INC)
+INC_FLAGS	= -I$(CONTROLLER_INC) -I$(VISDEBUG_INC) -I$(METROUTIL_INC) -I$(LOCALIZE_INC) -I$(PATHPLAN_INC)
 CPPFLAGS 	= $(INC_FLAGS) `pkg-config --cflags playerc++`
 CXXFLAGS	= -c -g #-Wall
 LIBS   		= -L$(METROUTIL_LIB) -lMetrobotics -L$(LOCALIZE_LIB) -lLocalization -L$(PATHPLAN_LIB) -lPathPlanner -lboost_system-mt -lglut -lGLU `pkg-config --libs playerc++`
 
 # Files
 OUTPUT    	= controller
-SOURCES   	= $(wildcard *.cpp)
-OBJECTS   	= $(patsubst %.cpp, %.o, $(SOURCES))
+#SOURCES   	= $(wildcard *.cpp)
+#OBJECTS   	= $(patsubst %.cpp, %.o, $(SOURCES))
+
+# from Mark's Makefile
+SOURCE_PATHS 	= $(shell find $(VISDEBUG_SRC) -name "*cpp") $(shell find $(CONTROLLER_SRC) -name "*cpp") $(wildcard *.cpp)
+SRCS 		:= $(foreach source, $(SOURCE_PATHS), $(subst $(VISDEBUG_SRC)/, , $(source) ))
+SOURCES 	:= $(foreach src, $(SRCS), $(subst $(CONTROLLER_SRC)/, , $(src) ))
+SOURCE_DIRS 	= $(dir $(SOURCE_PATHS))
+
+# Object files to link with no path
+OBJECTS 	= $(notdir $(SOURCES:.cpp=.o))
+
+# end Mark's
+
+
 
 # General targets
 .PHONY: $(OUTPUT) clean purge
+
+#display: 
+#	@echo SOURCE_PATHS: $(SOURCE_PATHS)
+#	@echo SRCS: $(SRCS)
+#	@echo SOURCES: $(SOURCES)
+#	@echo SOURCE_DIRS: $(SOURCE_DIRS)	
 
 # build metroutil, localization, pathplanner and the controller
 $(OUTPUT): $(METROUTIL) $(LOCALIZE) $(PATHPLAN) $(OBJECTS)
