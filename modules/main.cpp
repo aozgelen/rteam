@@ -66,7 +66,7 @@ void keyboard(unsigned char key, int x, int y){
   if (key == 'w' || key == 'W')
     rbt->move(Position(10, 0, 0));
   if (key == 's' || key == 'S')
-    rbt->move(Position(-10, 0, 0));
+    rbt->setSpeed(-10, 0, 0);
   if (key == 'a' || key == 'A')
     rbt->move(Position(0, 0, Utils::toRadians(22.5)));
   if (key == 'd' || key == 'D')
@@ -110,6 +110,7 @@ void mouse(int button, int state, int x, int y) {
   }
 }
 
+// this bit doesn't work. maybe due to graphix card requirement? 
 void drawFog(void){
   cout << "setting overlay" << endl;
   glutUseLayer(GLUT_OVERLAY);
@@ -350,7 +351,7 @@ int main(int argc, char **argv)
 
       glutInit(&argc, argv);
       glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
-      glutInitWindowSize(myMap->getLength() * 2, myMap->getHeight() * 2);
+      glutInitWindowSize(myMap->getLength() + 100 * 2, myMap->getHeight() * 2);
       glutInitWindowPosition(100, 100);
       glutCreateWindow(argv[0]);
       init();

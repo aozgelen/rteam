@@ -1,7 +1,8 @@
 /*
  * InterfaceToLocalization.cpp
  *
- * Author: George Rabanca
+ * Author: George Rabanca 
+ *         Tuna Ozgelen 
  *
  */
 
@@ -66,7 +67,8 @@ void InterfaceToLocalization::update() {
     mc->updateFilter(lastMove, obs);
     
     if (lastMove.getX() != 0 || lastMove.getTheta() != 0) {
-      printf("Updated filter with move: %f, %f, %f\n", lastMove.getX(), lastMove.getY(), lastMove.getTheta());
+      
+      //printf("Updated filter with move: %f, %f, %f\n", lastMove.getX(), lastMove.getY(), lastMove.getTheta());
     }
   }
 }
@@ -165,9 +167,30 @@ void InterfaceToLocalization::updateObservations() {
   
   bfp->NotFresh();
 
+  /* Process blobs: join overlapping blobs of the same color */
+  cout << "before join" << endl; 
+  printBlobs(pinkBlobs); 
+  printBlobs(yellowBlobs); 
+  printBlobs(greenBlobs); 
+  printBlobs(blueBlobs); 
+  printBlobs(orangeBlobs); 
+
+  joinBlobs(pinkBlobs); 
+  joinBlobs(yellowBlobs); 
+  joinBlobs(greenBlobs); 
+  joinBlobs(blueBlobs); 
+  joinBlobs(orangeBlobs); 
+
+  cout << "after join" << endl; 
+  printBlobs(pinkBlobs); 
+  printBlobs(yellowBlobs); 
+  printBlobs(greenBlobs); 
+  printBlobs(blueBlobs); 
+  printBlobs(orangeBlobs); 
+
   /* Calling order of finding marker functions is crucial!. Everytime one of these are called it erases the color 
-   blobs from observations. correct order of search should be room (3 colors), corner (2 colors) 
-   and enterance (1 color) fncts.
+     blobs from observations. correct order of search should be room (3 colors), corner (2 colors) 
+     and enterance (1 color) fncts.
   */
 
   // room markers
@@ -271,6 +294,8 @@ void InterfaceToLocalization::updateObservations() {
     }
   }
 
+  displayObservationSummary();
+
   robotMutex.unlock();
 }
 
@@ -309,6 +334,19 @@ vector<Observation> InterfaceToLocalization::findRoomMarkersFromBlobs(vector<pla
     cout << "checking 3 color markers :" << id << endl;
   
   vector<Observation> ob;
+
+  // process blobs: yellow and orange colors tend to get mixed up with one another. 
+  // if there is a yellow or an orange blob in the searched marker. check to see if 
+  // there also is the other in the observation. First step check if any of the colors
+  // are in the observed blobs.
+  bool orangeOrYellow = false; 
+  if ( !(topBlobs.empty() || middleBlobs.empty() || bottomBlobs.empty() ))
+    if ( getBlobColor(topBlobs[0]) == COLOR_YELLOW || 
+	 getBlobColor(middleBlobs[0]) == COLOR_YELLOW || 
+	 getBlobColor(middleBlobs[0]) == COLOR_ORANGE || 
+	 getBlobColor(bottomBlobs[0]) == COLOR_YELLOW || 
+	 getBlobColor(bottomBlobs[0]) == COLOR_ORANGE )  
+      orangeOrYellow = true;
   
   for( int i = 0; i < topBlobs.size(); i++ ) {
     for ( int k = 0; k < middleBlobs.size(); k++ ) {
@@ -328,6 +366,8 @@ vector<Observation> InterfaceToLocalization::findRoomMarkersFromBlobs(vector<pla
 	} 
 	
 	if (blobOnTopOf(top, middle) && blobOnTopOf(middle,bottom)) {
+	  // process blob: if there is orange or yellow...TO DO
+	  
 	  if ( DEBUG ) 
 	    cout << "top, middle and bottom blobs are on top of each other. room marker found!" << endl;
 	  Observation observation = Observation(id, 
@@ -377,26 +417,43 @@ vector<Observation> InterfaceToLocalization::findCornerMarkersFromBlobs(vector<p
 	printBlobInfo(bottom);
       }
 	  
-      if (blobOnTopOf(top, bottom)) {
-	if ( DEBUG ) 
-	  cout << "top blob is on top of the bottom blob. Marker found! " << endl;
-	Observation observation = Observation(id, 
-					      map,
-					      this->getAngle((bottom.right + bottom.left + top.right + top.left) / 4), 
-					      observationVariance);
-
-	ob.push_back(observation);
-	
-	topBlobs.erase(topBlobs.begin()+i, topBlobs.begin()+i+1);
-	i--;
-	bottomBlobs.erase(bottomBlobs.begin()+j, bottomBlobs.begin()+j+1);
-	j--;
-	if ( topBlobs.size()==0 || bottomBlobs.size()==0 ){
-	  if ( DEBUG )
-	    cout << "one of the blobs is empty. leaving function" << endl;
-	  return ob;
-	}
+      // process blob: add the marker only if there isn't a significant gap between them 
+	double topL = static_cast<double>(top.bottom - top.top); 
+	double topW = static_cast<double>(top.right - top.left); 
+	double bottomL = static_cast<double>(bottom.bottom - bottom.top); 
+	double bottomW = static_cast<double>(bottom.right - bottom.left); 
+      double eps = 0.5;
+      if (blobOnTopOf(top, bottom) && (bottom.top - top.bottom < ( topL + bottomL )/2 )) {
+	// process blob: if you see a 2 color marker at an extreme angle the above condition will fail 
+	// to recognize a missing blob in between 2 others. check if the height/width ratio is close to 1:1
+	// This bit does more harm than good at the moment, in case you are wondering why it is commented out.
+	//if( (( topL / topW ) > 1 - eps && ( topL / topW ) < 1 + eps ) &&
+	//    (( bottomL / bottomW ) > 1 - eps && ( bottomL / bottomW ) < 1 + eps )) {
+	  if ( DEBUG ) 
+	    cout << "top blob is on top of the bottom blob. Marker found! " << endl;
+	  
+	  Observation observation = Observation(id, 
+						map,
+						this->getAngle((bottom.right + bottom.left + top.right + top.left) / 4), 
+						observationVariance);
+	  
+	  ob.push_back(observation);
+	  
+	  topBlobs.erase(topBlobs.begin()+i, topBlobs.begin()+i+1);
+	  i--;
+	  bottomBlobs.erase(bottomBlobs.begin()+j, bottomBlobs.begin()+j+1);
+	  j--;
+	  if ( topBlobs.size()==0 || bottomBlobs.size()==0 ){
+	    if ( DEBUG )
+	      cout << "one of the blobs is empty. leaving function" << endl;
+	    return ob;
+	  }
+	  //}
+	  //else 
+	  //cout << "looking at the blobs from an extreme angle. discarding observation" << endl; 
       }
+      else 
+	cout << "DISCARDING BLOB INFO: there is a significant gap between these blobs." << endl; 
     }
   }
   return ob;
@@ -417,22 +474,30 @@ vector<Observation> InterfaceToLocalization::findEnteranceMarkersFromBlobs(vecto
     if ( DEBUG ) 
       printBlobInfo(blob);
     
-    //if () {           // check the length/width ratio. should be close to 2:1
-    Observation observation = Observation(id, 
-					  map,
-					  this->getAngle((blob.right + blob.left) / 2), 
-					  observationVariance);
-    
-    ob.push_back(observation);
-    
-    blobs.erase(blobs.begin()+i, blobs.begin()+i+1);
-    i--;
-    if ( blobs.size() == 0 ) {
-      if ( DEBUG )  
-	cout << "oops now our blob is empty. leaving function" << endl;
-      return ob;
+    // process blobs: check the length/width ratio. should be close to 2:1. just to be sure 1.5:1
+    double d = static_cast<double>( blob.bottom - blob.top ) / ( blob.right - blob.left ); 
+    if (DEBUG)
+      cout << "h/w ratio: " << d << endl;
+    if ( d > 1.75 ) {           
+      Observation observation = Observation(id, 
+					    map,
+					    this->getAngle((blob.right + blob.left) / 2), 
+					    observationVariance);
       
+      ob.push_back(observation);
+      
+      blobs.erase(blobs.begin()+i, blobs.begin()+i+1);
+      i--;
+      if ( blobs.size() == 0 ) {
+	if ( DEBUG )  
+	  cout << "oops now our blob is empty. leaving function" << endl;
+	return ob;
+	
+      }
     }
+    else 
+      if (DEBUG)
+	cout << "discarding observation h/w ratio doesn't match" << endl; 
   }
   return ob;
 }
@@ -463,6 +528,36 @@ bool InterfaceToLocalization::positionEqual(Position p1, Position p2) {
   return (absx == 0 && absy == 0 && Utils::toRadians(abst) == 0);
 }
 
+void InterfaceToLocalization::printBlobs(vector<player_blobfinder_blob>& blobs){
+  if( !blobs.empty() ){
+    cout << "Printing " ;
+    printBlobColor(blobs[0]);
+    cout << " blobs." << endl;
+    for( vector<player_blobfinder_blob>::iterator iter = blobs.begin(); iter != blobs.end(); iter++ )
+      printBlobInfo(*iter);
+  }
+}
+
+void InterfaceToLocalization::printBlobColor(player_blobfinder_blob b){
+  switch( getBlobColor(b) ){
+  case 0:
+    cout << "pink" ; 
+    break; 
+  case 1: 
+    cout << "yellow" ; 
+    break;
+  case 2: 
+    cout << "blue" ; 
+    break;
+  case 3: 
+    cout << "green" ; 
+    break;
+  case 4: 
+    cout << "orange" ; 
+    break;
+  }
+}
+
 void InterfaceToLocalization::printBlobInfo(player_blobfinder_blob blob){
   cout << "blob is at (" << blob.x << "," << blob.y << "), color:" ; 
   switch ( getBlobColor(blob) ) {
@@ -480,4 +575,142 @@ void InterfaceToLocalization::printBlobInfo(player_blobfinder_blob blob){
   }
   cout << ", area:" << blob.area << ", top:" << blob.top << ", bottom:" << blob.bottom 
        << ", left:" << blob.left << ", right:" << blob.right << endl;
+}
+
+// to go backwards
+void InterfaceToLocalization::setSpeed(double xs, double ys, double ts){
+  robotMutex.lock();
+  p2d->SetSpeed(xs, ys, ts);
+  robotMutex.unlock();
+}
+
+void InterfaceToLocalization::joinBlobs(vector<player_blobfinder_blob>& blobs){
+  vector<player_blobfinder_blob> newBlobs = blobs, tempBlobs;
+  bool needProcessing = true ;
+  while ( needProcessing ) {
+    needProcessing = false; 
+    for( vector<player_blobfinder_blob>::iterator iter1 = newBlobs.begin(); iter1 != newBlobs.end(); iter1++ )
+      for ( vector<player_blobfinder_blob>::iterator iter2 = iter1 + 1; iter2 != newBlobs.end(); iter2++ ){
+	if ( isOverlapping( *iter1, *iter2 ) ){
+	  // form new blob 
+	  int nleft = static_cast<int>( PlayerCc::min( iter1->left, iter2->left )) ; 
+	  int nright = static_cast<int>( PlayerCc::max( iter1->right, iter2->right )); 
+	  int ntop = static_cast<int>( PlayerCc::min( iter1->top, iter2->top )); 
+	  int nbottom = static_cast<int>( PlayerCc::max( iter1->bottom, iter2->bottom ));
+	  int nx = (nright + nleft)/2 ;
+	  int ny = (ntop + nbottom)/2 ;
+	  int narea = ( nright - nleft ) * ( nbottom - ntop );
+	  blobfinder_blob nb(static_cast<int>(iter1->id), static_cast<int>(iter1->color), 
+			     narea, nx, ny, nleft, nright, ntop, nbottom, iter1->range);
+	  // add to tempBlobs 
+	  tempBlobs.push_back(nb);
+	  needProcessing = true ; 
+	}
+      }
+    newBlobs = tempBlobs;
+  }
+  blobs = newBlobs; 
+}
+
+bool InterfaceToLocalization::isOverlapping(player_blobfinder_blob b1, player_blobfinder_blob b2 ){
+  bool overlap = false; 
+  // set the epsilon to be the %35 of the average height and width of these blobs.
+  // why %35? why not.
+  double hEps = ( static_cast<double>((b1.bottom - b1.top) + (b2.bottom - b2.top)) / 2) * 0.35;
+  double lEps = ( static_cast<double>((b1.right - b1.left) + (b2.right - b2.left)) / 2) * 0.35; 
+
+  /* For cases: 
+     
+     1.
+     b1
+     ----
+     | -|--   
+     --|- |   
+       ----
+         b2
+
+     2.
+         b1
+       ----
+     --|- |	 
+     | -|--
+     ----
+     b2
+
+     3.
+     b2
+     ----
+     | -|--   
+     --|- |   
+       ----
+         b1
+
+     4.
+         b2
+       ----
+     --|- |	 
+     | -|--
+     ----
+     b1
+  */
+  if ( b2.top < b1.bottom - hEps && b2.left + lEps < b1.right ) 
+    overlap = true; 
+  if ( b2.top < b1.bottom - hEps && b1.left + lEps < b2.right ) 
+    overlap = true; 
+  if ( b1.top < b2.bottom - hEps && b1.left + lEps < b2.right )
+    overlap = true; 
+  if ( b1.top < b2.bottom - hEps && b2.left + lEps < b1.right )
+    overlap = true; 
+}
+
+void InterfaceToLocalization::displayObservationSummary(){
+  if ( !obs.empty() )
+    cout << "************************* Observation Summary *************************** " << endl; 
+  vector<Observation>::iterator iter; 
+  vector<Observation> roomMarkers; 
+  vector<Observation> cornerMarkers; 
+  vector<Observation> enteranceMarkers; 
+  for ( iter = obs.begin(); iter != obs.end(); iter++ ){
+    int numberOfBlobs = 1;
+    string mark = iter->getMarkerId();
+    while ( mark.find("/") != string::npos ){
+      mark.replace(0, mark.find("/")+1, ""); 
+      numberOfBlobs++; 
+    }
+    switch( numberOfBlobs ) {
+    case 1: 
+      enteranceMarkers.push_back(*iter); 
+      break; 
+    case 2: 
+      cornerMarkers.push_back(*iter); 
+      break; 
+    case 3: 
+      roomMarkers.push_back(*iter);
+      break;
+    }
+  }
+
+  if ( roomMarkers.size() != 0 ) {
+    cout << roomMarkers.size() << " room markers found: " ; 
+    for ( vector<Observation>::iterator i = roomMarkers.begin(); i != roomMarkers.end(); i++ )
+      cout << i->getMarkerId() << " " ; 
+    cout << endl;
+  }
+  
+  if ( cornerMarkers.size() != 0 ) {
+    cout << cornerMarkers.size() << " corner markers found: " ; 
+    for ( vector<Observation>::iterator i = cornerMarkers.begin(); i != cornerMarkers.end(); i++ )
+      cout << i->getMarkerId() << " " ; 
+    cout << endl;
+  }
+  
+  if ( enteranceMarkers.size() != 0 ) {
+    cout << enteranceMarkers.size() << " enterance markers found: " ; 
+    for ( vector<Observation>::iterator i = enteranceMarkers.begin(); i != enteranceMarkers.end(); i++ )
+      cout << i->getMarkerId() << " " ; 
+    cout << endl;
+  }
+
+  if ( !obs.empty() )
+    cout << endl;
 }

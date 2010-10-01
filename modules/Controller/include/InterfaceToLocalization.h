@@ -16,6 +16,7 @@
 #include "Position.h"
 #include "Map.h"
 #include "MonteCarlo.h"
+#include "blobfinder_blob.h"
 
 using namespace PlayerCc;
 
@@ -55,8 +56,12 @@ public:
     this->observationVariance = observationVariance;
   }
 
+  void setSpeed(double, double, double);
+
   bool isMoving();
-  
+
+  void printBlobColor(player_blobfinder_blob);
+  void printBlobs(vector<player_blobfinder_blob>& ); 
   void printBlobInfo(player_blobfinder_blob);
 
 protected:
@@ -87,6 +92,10 @@ protected:
   bool positionEqual(Position p1, Position p2);
 
   bool blobOnTopOf(player_blobfinder_blob top, player_blobfinder_blob bottom);
+
+  void displayObservationSummary();
+  void joinBlobs(vector<player_blobfinder_blob>&);
+  bool isOverlapping( player_blobfinder_blob, player_blobfinder_blob );
 
   vector<Observation> findRoomMarkersFromBlobs( vector<player_blobfinder_blob>& topBlobs, 
 						vector<player_blobfinder_blob>& middleBlobs, 
