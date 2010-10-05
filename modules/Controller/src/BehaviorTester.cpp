@@ -10,7 +10,7 @@
 using namespace std; 
 
 void BehaviorTester::operator()() {
-    // enter main loop
+  // enter main loop
   while (rbt->GetState() != STATE_QUIT) {
 
     // Update Player interfaces.

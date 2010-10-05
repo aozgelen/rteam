@@ -12,13 +12,9 @@ using namespace PlayerCc;
 using namespace metrobotics;
 using namespace std;
 
-Robot::Robot(PlayerClient& pc, InterfaceToLocalization * i, Behavior* bp)
-  :mPlayerClient(pc), mIOService(), mSocket(mIOService), itl(i), mBehavior(bp)
+Robot::Robot(PlayerClient& pc, InterfaceToLocalization * i, string id, string type, Behavior* bp)
+  :mPlayerClient(pc), mIOService(), mSocket(mIOService), itl(i), mBehavior(bp), mNameID(id), mTypeID(type)
 {
-  // Initialize robot attributes.
-  mTypeID = SID_SURVEYOR;
-  mNameID = UID_SURVEYOR_SRV10;
-  
   // Initialize robot capabilities.
   init_provides();
   

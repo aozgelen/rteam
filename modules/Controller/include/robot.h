@@ -16,7 +16,7 @@ using namespace metrobotics;
 class Robot
 {
  public:
-  Robot(PlayerCc::PlayerClient& pc, InterfaceToLocalization * i, Behavior* bp = 0);
+  Robot(PlayerCc::PlayerClient& pc, InterfaceToLocalization * i, string, string, Behavior* bp = 0);
   ~Robot();
 
   // State management.

@@ -14,7 +14,6 @@ using namespace PlayerCc;
 #include "Aibo.h"
 #include <DataSerializer.h>
 #include <MonteCarlo.h>
-#include "PathTester.h"
 
 #include <cstdlib>
 #include <iostream>
@@ -23,16 +22,13 @@ using namespace PlayerCc;
 #include <cstring>
 using namespace std;
 
-Map * myMap;
-InterfaceToLocalization * rbt; 
-MonteCarlo * mc;
-MonteCarloVisualDebugger * debugger;
-Graph * g;
-PathPlanner * planner; 
+Map * myMap;                           // for all robots
+InterfaceToLocalization * rbt;         // specific to each robot? 
+MonteCarlo * mc;                       // specific to each robot? 
+MonteCarloVisualDebugger * debugger;   // specific to each robot.
+Graph * g;                             // this is the navgraph for all robots, given the map. 
+PathPlanner * planner;                 // specific to each robot.
 
-int goalCounter = 0;
-int updateCounter = 0;
-double deltaDistance = 0;
 double goalX;
 double goalY;
 
@@ -42,7 +38,6 @@ void init(void) {
 }
 
 void updateRobot() {
-  //cout << "calling interface to localization update() func" << endl;
   rbt->update();
 }
 
@@ -112,10 +107,12 @@ void mouse(int button, int state, int x, int y) {
 
 // this bit doesn't work. maybe due to graphix card requirement? 
 void drawFog(void){
+  MCPainter painter; 
   cout << "setting overlay" << endl;
   glutUseLayer(GLUT_OVERLAY);
   glClear(GL_COLOR_BUFFER_BIT);
   glClearColor(0.25,0.25,0.25,0.25); // set current color to black
+  // call some functioni from MCPainter to draw the fog on top of the map
   glutSwapBuffers(); 
 }
 
@@ -160,8 +157,6 @@ void readMapFile(ifstream& mFile) {
   int x1, y1, x2, y2; 
   bool first = true ;
 
-  cout << "read File. " << endl; 
-  
   while( !mFile.eof() ) {
     cmd = ""; label = ""; x1 = 0 ; y1 = 0 ; x2 = 0 ; y2 = 0 ; 
     mFile >> cmd ; 
@@ -169,7 +164,7 @@ void readMapFile(ifstream& mFile) {
     // in case the file is empty create a default map
     if ( mFile.eof() ){
       if ( first ){
-	cout << "Empty map file!" << endl; 
+	cout << "Empty map file!..." << endl; 
 	createMap_defaultField();
       }
     }
@@ -204,7 +199,6 @@ void readMapFile(ifstream& mFile) {
 	  cout << "Unknown map config command: " << cmd << endl;
 	getline(mFile, tmp); 
       }
-      
     }
     else {
       // ignore the rest of the line.
@@ -213,70 +207,89 @@ void readMapFile(ifstream& mFile) {
   } 
 }
 
-
 void displayUsage(int argc, char** argv){
   cout << "USAGE: " << argv[0] << " [ options ]" << endl << endl;
   cout << "Where [ options ] can be: " << endl ;
   cout << "\t-d \t(for running optional visual debugger)" << endl;
-  cout << "\t-m <map_filename>" << endl;
-  cout << "\t-p <player_hostname>:<player_port>" << endl;
-  cout << "\t-s <server_hostname>:<server_port>" << endl;
+  cout << "\t-f <config_filename>" << endl;
   exit(1);
 }
 
-
 int main(int argc, char **argv)
 {
-
   bool visualDEBUG = false; 
 
-  // for parsing command line flags. currently the only flag is to pass a map config file
-  // usage: <exec> -m <mapfile>. to add more flags add it to the end of string followed
+  // usage: <exec> [-d] [-f <config-file>]. to add more flags add it to the end of string followed
   // by a : or :: if the flag doesn't require an argument
-  const char* optflags = "d::m:p:s:"; 
+  const char* optflags = "d::f:"; 
   int ch;
 
-  // initialize default arguments
-  int server_port = 6667;
-  string server_hostname = "127.0.0.1";
+  ifstream configFile;
+  string central_server_hostname = "127.0.0.1"; 
+  int central_server_port = 6667;
+  string  player_hostname = "127.0.0.1"; 
   int player_port = 6665;
-  string player_hostname = "127.0.0.1";
-
-  ifstream mapFile; 
-
+  string label, type; 
+  
   if ( argc == 1 ) {
-    cout << "no arguments provided" << endl;
-    mapFile.open("config_files/map.conf", ios::in );
-    if( !mapFile ) cout << "can't open file" << endl;
-    readMapFile(mapFile); 
-    mapFile.close();
-    visualDEBUG = true; 
+    cout << "no config file arguments provided" << endl;
+    displayUsage(argc, argv);
+    exit(1); 
   }
   else {
     while ( -1 != ( ch = getopt( argc, argv, optflags ))){
       switch ( ch ) {
-      case 'm': 
-	cout << "mapfile: " << optarg << endl;
-	mapFile.open(optarg, ios::in); 
-	if( !mapFile ) {
-	  cout << "Can't open map file: " << optarg << ". Aborted" << endl; 
+      case 'f': {
+	cout << "configuration file: " << optarg << endl;
+	configFile.open(optarg, ios::in); 
+	if( !configFile ) {
+	  cout << "Can't open configuration file: " << optarg << ". Aborted" << endl; 
 	  exit(1);
 	}
-	readMapFile(mapFile); 
-	mapFile.close();
+
+	string  cmd, tmp, mfile; 
+
+	// parse configuration file + attempt to connect the player and central servers
+	while( !configFile.eof() ) {
+	  cmd = ""; label = ""; type = ""; 
+	  mfile = "map.conf";    
+	  configFile >> cmd ; 
+	  
+	  // if the line is commented skip it otherwise process.
+	  if (! ( cmd[0] == '/' && cmd[1] == '/' ) ){ 
+	    if ( cmd == "central_server" ) {
+	      configFile >> central_server_hostname >> central_server_port ;
+	    }      
+	    else if ( cmd == "map" ){
+	      configFile >> mfile;
+	      ifstream mapFile( mfile.c_str(), ios::in ); 
+	      if ( !mapFile ) {
+		cout << "Unable to open map file " <<  mfile << endl; 
+		createMap_defaultField();
+	      }
+	      else {
+		readMapFile(mapFile);
+		mapFile.close();
+	      }
+	    }
+	    else if ( cmd == "robot" ){ 
+	      configFile >> label >> type >> player_hostname >> player_port ; 
+	    }
+	    else {
+	      cout << "Unknown config command: " << cmd << endl;
+	      getline(configFile, tmp); 
+	    }
+	  }
+	  else {
+	    // ignore the rest of the line.
+	    getline(configFile, tmp); 
+	  }
+
+	} 
+
+	configFile.close();
 	break;
-      case 's':
-	server_hostname = strtok(optarg, ":"); 
-	cout << "server_hostname: " << server_hostname << endl;
-	server_port = atoi(strtok(NULL, ":"));
-	cout << "server_port: " << server_port << endl;
-	break; 
-      case 'p':
-	player_hostname = strtok(optarg, ":"); 
-	cout << "player_hostname: " << player_hostname << endl;
-	player_port = atoi(strtok(NULL, ":"));
-	cout << "player_port: " << player_port << endl;
-	break;
+      }
       case 'd':
 	visualDEBUG = true; 
 	break;
@@ -287,68 +300,46 @@ int main(int argc, char **argv)
     }
   }
 
-  bool connectedPlayer = false; 
-  bool connectedCentralServer = false;
-
-  // try to connect to player and central server
-  //while ( !
-  try{
+  try {
     // connect to the player server
     PlayerClient pc(player_hostname, player_port);
 
     rbt = new Surveyor(myMap, &pc);  // this sets the interface to localization
-       
-    // startup the robot
-    Robot robot(pc, rbt);
     
-    // connect robot to the central server
-    if (!robot.Connect(server_hostname, server_port)) {
+    // startup the robot
+    Robot robot(pc, rbt, label, type);
+    
+    // connect robot to the central server. nothing happens if it fails so be careful
+    if (!robot.Connect(central_server_hostname, central_server_port)) {
       cerr << "Failed to establish a connection to the Central Server.\n"
-	   << "Central Server hostname: " << server_hostname << "\n"
-	   << "Central Server port: " << server_port << endl;
+	   << "Central Server hostname: " << central_server_hostname << "\n"
+	   << "Central Server port: " << central_server_port << endl;
       exit(1);
     }
-    
+
     mc = rbt->getMonteCarlo();
-    
-    Utils::initRandom();
-    
-    //Control rt(rbt);
-    //boost::thread * commandThread = new boost::thread(rt);
+    Utils::initRandom();          // srand(time(NULL))
 
-    g = new Graph(myMap, true, 30);
-
+    g = new Graph(myMap, true, 30);		
+    
     Node n; 
     planner = new PathPlanner(*g,n,n); 
-
+    
     // select a behavior
     /*
-    Loiter behavior(pc);
-    robot.SetBehavior(&behavior);
-    
-    while (robot.GetState() != STATE_QUIT) {
-
-      // Update Player interfaces.
-      pc.ReadIfWaiting();
+      Loiter behavior(pc);
+      robot.SetBehavior(&behavior);
       
-      // Update the robot.
-      robot.Update();
-      
-      // Take a quick breath.
-      usleep(1);
-    }
+      }
     */
+    
+    BehaviorTester bt(&robot, &pc); 
+    boost::thread * behaviorThread = new boost::thread(bt); 
 
-    //BehaviorTester bt(&robot, &pc); 
-    //boost::thread * behaviorThread = new boost::thread(bt); 
-
-    //PathTester tt(planner);
-    //boost::thread * pathThread = new boost::thread(tt);
-
-    if ( visualDEBUG) {
+    if ( visualDEBUG ) {
       debugger = new MonteCarloVisualDebugger();
       mc->setDebugger(debugger);
-
+      
       glutInit(&argc, argv);
       glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
       glutInitWindowSize(myMap->getLength() + 100 * 2, myMap->getHeight() * 2);
@@ -363,18 +354,21 @@ int main(int argc, char **argv)
       glutKeyboardFunc(keyboard);
       //glutOverlayDisplayFunc(drawFog);
       //glutPostOverlayRedisplay();
-     
+      
       glutSetCursor(GLUT_CURSOR_CROSSHAIR);
       glutTimerFunc(100, displayObservations, 0);      
       glutMainLoop();  
     }
-
-  } catch (PlayerError) {
+  
+  }
+  catch (PlayerError){
     cerr << "Failed to establish a connection to the Player Server.\n"
+	 << "Robot: " << label << ", type:" << type << "\n"
 	 << "Player Server hostname: " << player_hostname << "\n"
 	 << "Player Server port: " << player_port << endl;
     exit(1);
   }
+  
   
   return 0;
 }
