@@ -1,15 +1,15 @@
 /*
- * BehaviorTester.cpp
+ * BehaviorRunner.cpp
  *
  *  Created on: Aug 30, 2010
  *      Author: robotics
  */
 
-#include "BehaviorTester.h"
+#include "BehaviorRunner.h"
 #include <iostream> 
 using namespace std; 
 
-void BehaviorTester::operator()() {
+void BehaviorRunner::operator()() {
   // enter main loop
   while (rbt->GetState() != STATE_QUIT) {
 

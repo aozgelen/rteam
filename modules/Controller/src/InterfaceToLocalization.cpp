@@ -8,7 +8,7 @@
 
 #include "InterfaceToLocalization.h"
 
-#define DEBUG (false)
+#define DEBUG false
 #define COLOR_PINK 0
 #define COLOR_YELLOW 1
 #define COLOR_BLUE 2

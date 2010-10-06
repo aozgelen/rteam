@@ -12,6 +12,16 @@ MCPainter::MCPainter() {
 
 }
 
+void MCPainter::drawFogOfExploration(){
+  glBegin(GL_POLYGON); 
+  {
+    glVertex2i(100, 100);
+    glVertex2i(100, 300);
+    glVertex2i(300, 300);
+    glVertex2i(300, 100);
+  }
+}
+
 void MCPainter::drawGrid(Map * map) {
   glBegin(GL_LINES);
   {

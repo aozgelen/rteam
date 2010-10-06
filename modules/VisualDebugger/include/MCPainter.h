@@ -35,6 +35,9 @@ public:
   void drawSource(Graph * g, int x, int y); 
   void drawTarget(Graph * g, int x, int y);
   void drawPath(Graph * g, list<int> nodes); 
+
+  // for the fog. just testing for now. 
+  void drawFogOfExploration();
 };
 
 #endif /* MCPAINTER_H_ */

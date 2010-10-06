@@ -2,7 +2,7 @@
 #include "robot.h"
 #include "loiter.h"
 #include "wallAvoid.h"
-#include "BehaviorTester.h"
+#include "BehaviorRunner.h"
 
 #include "libplayerc++/playerc++.h"
 using namespace PlayerCc;
@@ -113,6 +113,7 @@ void drawFog(void){
   glClear(GL_COLOR_BUFFER_BIT);
   glClearColor(0.25,0.25,0.25,0.25); // set current color to black
   // call some functioni from MCPainter to draw the fog on top of the map
+  painter.drawFogOfExploration(); 
   glutSwapBuffers(); 
 }
 
@@ -329,11 +330,10 @@ int main(int argc, char **argv)
     /*
       Loiter behavior(pc);
       robot.SetBehavior(&behavior);
-      
-      }
-    */
+    */      
+
     
-    BehaviorTester bt(&robot, &pc); 
+    BehaviorRunner bt(&robot, &pc); 
     boost::thread * behaviorThread = new boost::thread(bt); 
 
     if ( visualDEBUG ) {
@@ -346,14 +346,14 @@ int main(int argc, char **argv)
       glutInitWindowPosition(100, 100);
       glutCreateWindow(argv[0]);
       init();
-      //glutEstablishOverlay();
+      glutEstablishOverlay();
       // register callbacks
       glutDisplayFunc(draw);
       glutReshapeFunc(reshape);
       glutMouseFunc(mouse);
       glutKeyboardFunc(keyboard);
-      //glutOverlayDisplayFunc(drawFog);
-      //glutPostOverlayRedisplay();
+      glutOverlayDisplayFunc(drawFog);
+      glutPostOverlayRedisplay();
       
       glutSetCursor(GLUT_CURSOR_CROSSHAIR);
       glutTimerFunc(100, displayObservations, 0);      
