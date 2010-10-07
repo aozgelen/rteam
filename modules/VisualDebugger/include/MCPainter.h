@@ -27,7 +27,7 @@ public:
   void drawParticles(MonteCarloVisualDebugger * debugger);
   void drawObservations(MonteCarloVisualDebugger * debugger, MonteCarlo * mc);
   void drawPosition(MonteCarlo * mc, Position realPosition);
-  void drawGoal(double goalX, double goalY);
+  //void drawGoal(double goalX, double goalY);
   
   // for path planner
   void drawNodes(Graph * g);

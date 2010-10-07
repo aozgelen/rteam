@@ -8,6 +8,8 @@
 #include <vector>
 #include <list>
 
+#define ROBOT_DEBUG false
+
 using namespace PlayerCc;
 using namespace metrobotics;
 using namespace std;
@@ -46,7 +48,7 @@ bool Robot::Connect(const string& hostname, unsigned short port)
   // Get the IP address of the host.
   ip::address addr = ip::address::from_string(hostname, ec);
   if (ec) {
-    cerr << signature << " - failed to retrieve host's IP address" << endl;
+    if (ROBOT_DEBUG) cerr << signature << " - failed to retrieve host's IP address" << endl;
     return false;
   }
   
@@ -54,7 +56,7 @@ bool Robot::Connect(const string& hostname, unsigned short port)
   ip::tcp::endpoint endpt(addr, port);
   mSocket.connect(endpt, ec);
   if (ec) {
-    cerr << signature << " - failed to connect to host" << endl;
+    if (ROBOT_DEBUG) cerr << signature << " - failed to connect to host" << endl;
     return false;
   }
   
@@ -80,13 +82,13 @@ void Robot::Disconnect()
   // Shutdown the connection.
   mSocket.shutdown(ip::tcp::socket::shutdown_both, ec);
   if (ec) {
-    cerr << signature << " - failed to disconnect" << endl;
+    if (ROBOT_DEBUG) cerr << signature << " - failed to disconnect" << endl;
   }
   
   // Close the socket.
   mSocket.close(ec);
   if (ec) {
-    cerr << signature << " - failed to close the socket" << endl;
+    if (ROBOT_DEBUG) cerr << signature << " - failed to close the socket" << endl;
   }
 }
 
@@ -137,7 +139,7 @@ void Robot::Update()
     do_state_action_player();
   } break;
   default: {
-    cerr << signature << " - unrecognized state" << endl;
+    if (ROBOT_DEBUG) cerr << signature << " - unrecognized state" << endl;
     do_state_change(STATE_QUIT);
   } break;
   }
@@ -177,7 +179,7 @@ void Robot::init_provides()
       }
     }
   } catch (PlayerError) {
-    cerr << signature << " - failed to acquire capabilities from Player Server" << endl;
+    if (ROBOT_DEBUG) cerr << signature << " - failed to acquire capabilities from Player Server" << endl;
     dev.clear();
   }
   
@@ -197,10 +199,10 @@ void Robot::init_provides()
 		mProvidesList.push_back(CAPS_POSITION2D);
 	      }
 	    } else {
-	      cerr << signature << " - failed to allocate memory for Position2D proxy" << endl;
+	      if (ROBOT_DEBUG) cerr << signature << " - failed to allocate memory for Position2D proxy" << endl;
 	    }
 	  } catch (PlayerError) {
-	    cerr << signature << " - failed to subscribe to Position2D proxy" << endl;
+	    if (ROBOT_DEBUG) cerr << signature << " - failed to subscribe to Position2D proxy" << endl;
 	    delete pp;
 	  }
 	}
@@ -228,7 +230,7 @@ bool Robot::msg_waiting() const
   // Check the socket.
   size_t payload = mSocket.available(ec);
   if (ec) {
-    cerr << signature << " - failed to peek at the socket" << endl;
+    if (ROBOT_DEBUG) cerr << signature << " - failed to peek at the socket" << endl;
     return false;
   } else if (payload >= sizeof(cmd_len_t)) {
     return true;
@@ -254,7 +256,7 @@ bool Robot::read(std::stringstream& ss)
     inputBuffer.commit(n);
     mSilenceTimer.start();
   } catch (boost::system::system_error) {
-    cerr << signature << " - failed to read message" << endl;
+    if (ROBOT_DEBUG) cerr << signature << " - failed to read message" << endl;
     return false;
   }
   
@@ -266,7 +268,8 @@ bool Robot::read(std::stringstream& ss)
   ss << is.rdbuf();
   
   // Spam standard out so that the user can feel like they're in the Matrix.
-  cout << mNameID << "::read = [" << ss.str() << "]" << endl;
+  if (ROBOT_DEBUG) 
+    cout << mNameID << "::read = [" << ss.str() << "]" << endl;
   
   return true;
 }
@@ -286,7 +289,7 @@ bool Robot::write(const stringstream& ss)
   // Make sure that the message doesn't exceed the maximum size.
   string msg = ss.str();
   if (msg.size() > max_size) {
-    cerr << signature << " - message is too large" << endl;
+    if (ROBOT_DEBUG) cerr << signature << " - message is too large" << endl;
     return false;
   }
   
@@ -305,12 +308,13 @@ bool Robot::write(const stringstream& ss)
     outputBuffer.consume(n);
     mSilenceTimer.start();
   } catch (boost::system::system_error) {
-    cerr << signature << " - failed to send message" << endl;
+    if (ROBOT_DEBUG) cerr << signature << " - failed to send message" << endl;
     return false;
   }
   
   // Spam standard out so that the user can feel like they're in the Matrix.
-  cout << mNameID << "::sent = [" << msg << "]" << endl;
+  if (ROBOT_DEBUG) 
+    cout << mNameID << "::sent = [" << msg << "]" << endl;
   
   return true;
 }
@@ -342,13 +346,13 @@ void Robot::do_state_action_init()
     ss << " " << *iter;
   }
   if (write(ss)) {
-    cerr << signature << " - success; next state: STATE_ACK" << endl;
+    if (ROBOT_DEBUG) cerr << signature << " - success; next state: STATE_ACK" << endl;
     do_state_change(STATE_ACK);
   } else if (mStateTimer.elapsed() >= MAX_TIME_STATE) {
-    cerr << signature << " - timeout; next state: STATE_QUIT" << endl;
+    if (ROBOT_DEBUG) cerr << signature << " - timeout; next state: STATE_QUIT" << endl;
     do_state_change(STATE_QUIT);
   } else {
-    cerr << signature << " - failure; next state: STATE_INIT" << endl;
+    if (ROBOT_DEBUG) cerr << signature << " - failure; next state: STATE_INIT" << endl;
     do_state_change(STATE_INIT);
   }
 }
@@ -360,7 +364,7 @@ void Robot::do_state_action_ack()
   
   // Don't wait forever.
   if (mStateTimer.elapsed() >= MAX_TIME_STATE) {
-    cerr << signature << " - timeout; next state: STATE_INIT" << endl;
+    if (ROBOT_DEBUG) cerr << signature << " - timeout; next state: STATE_INIT" << endl;
     do_state_change(STATE_INIT);
   }
   
@@ -374,15 +378,15 @@ void Robot::do_state_action_ack()
   if (read(ss) && (ss >> cmd >> session_id) && (cmd.find(CMD_ACK) != string::npos)) {
     if (session_id < 0) {
       mSessionID = -1;
-      cerr << signature << " - rejected; next state: STATE_QUIT" << endl;
+      if (ROBOT_DEBUG) cerr << signature << " - rejected; next state: STATE_QUIT" << endl;
       do_state_change(STATE_QUIT);
     } else {
       mSessionID = session_id;
-      cerr << signature << " - accepted; next state: STATE_IDLE" << endl;
+      if (ROBOT_DEBUG) cerr << signature << " - accepted; next state: STATE_IDLE" << endl;
       do_state_change(STATE_IDLE);
     }
   } else {
-    cerr << signature << " - failure; next state: STATE_INIT" << endl;
+    if (ROBOT_DEBUG) cerr << signature << " - failure; next state: STATE_INIT" << endl;
     do_state_change(STATE_INIT);
   }
 }
@@ -394,11 +398,11 @@ void Robot::do_state_action_idle()
   
   // Keep an eye out for new commands.
   if (msg_waiting()) {
-    cerr << signature << " - received command; next state: STATE_CMD_PROC" << endl;
+    if (ROBOT_DEBUG) cerr << signature << " - received command; next state: STATE_CMD_PROC" << endl;
     do_state_change(STATE_CMD_PROC);
   } else if (mSilenceTimer.elapsed() >= MAX_TIME_SILENCE) {
     // Don't let the connection die.
-    cerr << signature << " - max silence exceeded; next state: STATE_PING_SEND" << endl;
+    if (ROBOT_DEBUG) cerr << signature << " - max silence exceeded; next state: STATE_PING_SEND" << endl;
     do_state_change(STATE_PING_SEND);
   }
 }
@@ -412,13 +416,13 @@ void Robot::do_state_action_ping_send()
   stringstream ss;
   ss << CMD_PING;
   if (write(ss)) {
-    cerr << signature << " - success; next state: STATE_PONG_READ" << endl;
+    if (ROBOT_DEBUG) cerr << signature << " - success; next state: STATE_PONG_READ" << endl;
     do_state_change(STATE_PONG_READ);
   } else if (mStateTimer.elapsed() >= MAX_TIME_STATE) {
-    cerr << signature << " - timeout; next state: STATE_INIT" << endl;
+    if (ROBOT_DEBUG) cerr << signature << " - timeout; next state: STATE_INIT" << endl;
     do_state_change(STATE_INIT);
   } else {
-    cerr << signature << " - failure; next state: STATE_PING_SEND" << endl;
+    if (ROBOT_DEBUG) cerr << signature << " - failure; next state: STATE_PING_SEND" << endl;
     do_state_change(STATE_PING_SEND);
   }
 }
@@ -430,7 +434,7 @@ void Robot::do_state_action_pong_read()
   
   // Don't wait forever.
   if (mStateTimer.elapsed() >= MAX_TIME_STATE) {
-    cerr << signature << " - timeout; next state: STATE_PING_SEND" << endl;
+    if (ROBOT_DEBUG) cerr << signature << " - timeout; next state: STATE_PING_SEND" << endl;
     do_state_change(STATE_PING_SEND);
   }
   
@@ -441,10 +445,10 @@ void Robot::do_state_action_pong_read()
   stringstream ss;
   string cmd;
   if (read(ss) && (ss >> cmd) && (cmd.find(CMD_PONG) != string::npos)) {
-    cerr << signature << " - success; next state: STATE_IDLE" << endl;
+    if (ROBOT_DEBUG) cerr << signature << " - success; next state: STATE_IDLE" << endl;
     do_state_change(STATE_IDLE);
   } else {
-    cerr << signature << " - failure; next state: STATE_PING_SEND" << endl;
+    if (ROBOT_DEBUG) cerr << signature << " - failure; next state: STATE_PING_SEND" << endl;
     do_state_change(STATE_PING_SEND);
   }
 }
@@ -458,13 +462,13 @@ void Robot::do_state_action_pong_send()
   stringstream ss;
   ss << CMD_PONG;
   if (write(ss)) {
-    cerr << signature << " - success; next state: STATE_IDLE" << endl;
+    if (ROBOT_DEBUG) cerr << signature << " - success; next state: STATE_IDLE" << endl;
     do_state_change(STATE_IDLE);
   } else if (mStateTimer.elapsed() >= MAX_TIME_STATE) {
-    cerr << signature << " - timeout; next state: STATE_PING_SEND" << endl;
+    if (ROBOT_DEBUG) cerr << signature << " - timeout; next state: STATE_PING_SEND" << endl;
     do_state_change(STATE_PING_SEND);
   } else {
-    cerr << signature << " - failure; next state: STATE_PONG_SEND" << endl;
+    if (ROBOT_DEBUG) cerr << signature << " - failure; next state: STATE_PONG_SEND" << endl;
     do_state_change(STATE_PONG_SEND);
   }
 }
@@ -484,7 +488,7 @@ void Robot::do_state_action_cmd_proc()
     // Process the command.
     if (cmd.find(CMD_PING) != string::npos)
       {
-	cerr << signature << " - PING; next state: STATE_PONG_SEND" << endl;
+	if (ROBOT_DEBUG) cerr << signature << " - PING; next state: STATE_PONG_SEND" << endl;
 	do_state_change(STATE_PONG_SEND);
       }
     else
@@ -495,7 +499,7 @@ void Robot::do_state_action_cmd_proc()
 	  if (mBehavior) {
 	    mBehavior->Restart();
 	  }
-	  cerr << signature << " - UNLOCK; next state: STATE_IDLE" << endl;
+	  if (ROBOT_DEBUG) cerr << signature << " - UNLOCK; next state: STATE_IDLE" << endl;
 	  do_state_change(STATE_IDLE);
 	}
       else
@@ -506,7 +510,7 @@ void Robot::do_state_action_cmd_proc()
 	    if (mBehavior) {
 	      mBehavior->Stop();
 	    }
-	    cerr << signature << " - LOCK; next state: STATE_IDLE" << endl;
+	    if (ROBOT_DEBUG) cerr << signature << " - LOCK; next state: STATE_IDLE" << endl;
 	    do_state_change(STATE_IDLE);
 	  }
 	else
@@ -514,13 +518,13 @@ void Robot::do_state_action_cmd_proc()
 	    {
 	      // Save the command; it will be processed in the next state.
 	      mStringBuffer = ss.str();
-	      cerr << signature << " - MOVE; next state: STATE_MOVING" << endl;
+	      if (ROBOT_DEBUG) cerr << signature << " - MOVE; next state: STATE_MOVING" << endl;
 	      do_state_change(STATE_MOVING);
 	    }
 	  else
 	    if (cmd.find(CMD_ASKPOSE) != string::npos)
 	      {
-		cerr << signature << " - ASKPOSE; next state: STATE_POSE" << endl;
+		if (ROBOT_DEBUG) cerr << signature << " - ASKPOSE; next state: STATE_POSE" << endl;
 		do_state_change(STATE_POSE);
 	      }
 	    else
@@ -528,22 +532,22 @@ void Robot::do_state_action_cmd_proc()
 		{
 		  // Save the command; it will be used in the next state.
 		  mStringBuffer = ss.str();
-		  cerr << signature << " - ASKPLAYER; next state: STATE_PLAYER" << endl;
+		  if (ROBOT_DEBUG) cerr << signature << " - ASKPLAYER; next state: STATE_PLAYER" << endl;
 		  do_state_change(STATE_PLAYER);
 		}
 	      else
 		if (cmd.find(CMD_QUIT) != string::npos)
 		  {
-		    cerr << signature << " - QUIT; next state: STATE_QUIT" << endl;
+		    if (ROBOT_DEBUG) cerr << signature << " - QUIT; next state: STATE_QUIT" << endl;
 		    do_state_change(STATE_QUIT);
 		  }
 		else
 		  {
-		    cerr << signature << " - unrecognized command; next state: STATE_IDLE" << endl;
+		    if (ROBOT_DEBUG) cerr << signature << " - unrecognized command; next state: STATE_IDLE" << endl;
 		    do_state_change(STATE_IDLE);
 		  }
   } else {
-    cerr << signature << " - failure; next state: STATE_IDLE" << endl;
+    if (ROBOT_DEBUG) cerr << signature << " - failure; next state: STATE_IDLE" << endl;
     do_state_change(STATE_IDLE);
   }
 }
@@ -558,7 +562,7 @@ void Robot::do_state_action_moving()
     stringstream oss;
     oss << CMD_ERROR << " " << CMD_MOVE << " failed: not locked";
     write(oss);
-    cerr << signature << " - failure; next state: STATE_IDLE" << endl;
+    if (ROBOT_DEBUG) cerr << signature << " - failure; next state: STATE_IDLE" << endl;
     do_state_change(STATE_IDLE);
     return;
   }
@@ -568,7 +572,7 @@ void Robot::do_state_action_moving()
     stringstream oss;
     oss << CMD_ERROR << " " << CMD_MOVE << " failed: not providing " << CAPS_POSITION2D;
     write(oss);
-    cerr << signature << " - failure; next state: STATE_IDLE" << endl;
+    if (ROBOT_DEBUG) cerr << signature << " - failure; next state: STATE_IDLE" << endl;
     do_state_change(STATE_IDLE);
     return;
   }
@@ -583,7 +587,7 @@ void Robot::do_state_action_moving()
     stringstream oss;
     oss << CMD_ERROR << " " << CMD_MOVE << " failed: invalid arguments";
     write(oss);
-    cerr << signature << " - failure; next state: STATE_IDLE" << endl;
+    if (ROBOT_DEBUG) cerr << signature << " - failure; next state: STATE_IDLE" << endl;
     do_state_change(STATE_IDLE);
     return;
   }
@@ -595,7 +599,7 @@ void Robot::do_state_action_moving()
     stringstream oss;
     oss << CMD_ERROR << " " << CMD_MOVE << " failed: Player error";
     write(oss);
-    cerr << signature << " - failure; next state: STATE_IDLE" << endl;
+    if (ROBOT_DEBUG) cerr << signature << " - failure; next state: STATE_IDLE" << endl;
     do_state_change(STATE_IDLE);
     return;
   }
@@ -604,9 +608,9 @@ void Robot::do_state_action_moving()
   stringstream oss;
   oss << CMD_MOVING;
   if (write(oss)) {
-    cerr << signature << " - success; next state: STATE_IDLE" << endl;
+    if (ROBOT_DEBUG) cerr << signature << " - success; next state: STATE_IDLE" << endl;
   } else {
-    cerr << signature << " - failure; next state: STATE_IDLE" << endl;
+    if (ROBOT_DEBUG) cerr << signature << " - failure; next state: STATE_IDLE" << endl;
   }
   do_state_change(STATE_IDLE);
 }
@@ -621,7 +625,7 @@ void Robot::do_state_action_pose()
     stringstream oss;
     oss << CMD_ERROR << " " << CMD_ASKPOSE << " failed: not providing " << CAPS_POSITION2D;
     write(oss);
-    cerr << signature << " - failure; next state: STATE_IDLE" << endl;
+    if (ROBOT_DEBUG) cerr << signature << " - failure; next state: STATE_IDLE" << endl;
     do_state_change(STATE_IDLE);
     return;
   }
@@ -643,7 +647,7 @@ void Robot::do_state_action_pose()
     stringstream oss;
     oss << CMD_ERROR << " " << CMD_ASKPOSE << " failed: Player error";
     write(oss);
-    cerr << signature << " - failure; next state: STATE_IDLE" << endl;
+    if (ROBOT_DEBUG) cerr << signature << " - failure; next state: STATE_IDLE" << endl;
     do_state_change(STATE_IDLE);
     return;
   }
@@ -653,9 +657,9 @@ void Robot::do_state_action_pose()
   oss << CMD_POSE << " " << mSessionID
       << " "<< xp << " " << yp << " " << ap << " " << confidence;
   if (write(oss)) {
-    cerr << signature << " - success; next state: STATE_IDLE" << endl;
+    if (ROBOT_DEBUG) cerr << signature << " - success; next state: STATE_IDLE" << endl;
   } else {
-    cerr << signature << " - failure; next state: STATE_IDLE" << endl;
+    if (ROBOT_DEBUG) cerr << signature << " - failure; next state: STATE_IDLE" << endl;
   }
   do_state_change(STATE_IDLE);
 }
@@ -674,7 +678,7 @@ void Robot::do_state_action_player()
     stringstream oss;
     oss << CMD_ERROR << " " << CMD_ASKPLAYER << " failed: invalid arguments";
     write(oss);
-    cerr << signature << " - failure; next state: STATE_IDLE" << endl;
+    if (ROBOT_DEBUG) cerr << signature << " - failure; next state: STATE_IDLE" << endl;
     do_state_change(STATE_IDLE);
     return;
   }
@@ -690,7 +694,7 @@ void Robot::do_state_action_player()
     stringstream oss;
     oss << CMD_ERROR << " " << CMD_ASKPLAYER << " failed: Player error";
     write(oss);
-    cerr << signature << " - failure; next state: STATE_IDLE" << endl;
+    if (ROBOT_DEBUG) cerr << signature << " - failure; next state: STATE_IDLE" << endl;
     do_state_change(STATE_IDLE);
     return;
   }
@@ -699,9 +703,9 @@ void Robot::do_state_action_player()
   stringstream oss;
   oss << CMD_PLAYER << " " << guiid << " " << mSessionID << " "<< ip << " " << port;
   if (write(oss)) {
-    cerr << signature << " - success; next state: STATE_IDLE" << endl;
+    if (ROBOT_DEBUG) cerr << signature << " - success; next state: STATE_IDLE" << endl;
   } else {
-    cerr << signature << " - failure; next state: STATE_IDLE" << endl;
+    if (ROBOT_DEBUG) cerr << signature << " - failure; next state: STATE_IDLE" << endl;
   }
   do_state_change(STATE_IDLE);
 }

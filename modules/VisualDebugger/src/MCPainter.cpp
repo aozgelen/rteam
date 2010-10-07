@@ -307,7 +307,7 @@ void MCPainter::drawPosition(MonteCarlo * mc, Position realPosition) {
   glEnd();
 }
 
-void MCPainter::drawGoal(double goalX, double goalY) {
+/*void MCPainter::drawGoal(double goalX, double goalY) {
   glBegin(GL_LINES);
   {
     glColor3f(1, 0, 0);
@@ -318,4 +318,4 @@ void MCPainter::drawGoal(double goalX, double goalY) {
   }
   glEnd();
 }
-
+*/

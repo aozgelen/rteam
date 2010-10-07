@@ -2,7 +2,7 @@
 #include "robot.h"
 #include "loiter.h"
 #include "wallAvoid.h"
-#include "BehaviorRunner.h"
+#include "Controller.h"
 
 #include "libplayerc++/playerc++.h"
 using namespace PlayerCc;
@@ -29,8 +29,8 @@ MonteCarloVisualDebugger * debugger;   // specific to each robot.
 Graph * g;                             // this is the navgraph for all robots, given the map. 
 PathPlanner * planner;                 // specific to each robot.
 
-double goalX;
-double goalY;
+//double goalX;
+//double goalY;
 
 void init(void) {
   glClearColor(0.0, 0.0, 0.0, 0.0);
@@ -46,7 +46,7 @@ void updateRobot() {
 void displayObservations(int unused) {
   updateRobot();
   glutPostRedisplay();
-  glutTimerFunc(20, displayObservations, 0);
+  glutTimerFunc(1, displayObservations, 0);
 }
 
 //called when the window changes position and size
@@ -96,8 +96,6 @@ void mouse(int button, int state, int x, int y) {
       Node s(1, p.getX(), p.getY()); 
       planner->setSource(s); 
 
-      cout << "clicked point: (" << x << "," << y << ")" << endl;
-
       Node t(1, getMapX(x), getMapY(y)); 
       planner->setTarget(t); 
       planner->calcPath();
@@ -108,7 +106,6 @@ void mouse(int button, int state, int x, int y) {
 // this bit doesn't work. maybe due to graphix card requirement? 
 void drawFog(void){
   MCPainter painter; 
-  cout << "setting overlay" << endl;
   glutUseLayer(GLUT_OVERLAY);
   glClear(GL_COLOR_BUFFER_BIT);
   glClearColor(0.25,0.25,0.25,0.25); // set current color to black
@@ -118,27 +115,41 @@ void drawFog(void){
 }
 
 void draw(void) {
+  cout << "MAIN THREAD: Updating Visual Debugger canvas..." << endl; 
+
   MCPainter painter;
   glutUseLayer(GLUT_NORMAL);
   glClear(GL_COLOR_BUFFER_BIT);
   glClearColor(1,1,1,1); // set current color to white
 
   painter.drawMarkers(myMap);
+  cout << "\tMAIN THREAD -> markers drawn." << endl;
   painter.drawWalls(myMap);
+  cout << "\tMAIN THREAD -> walls drawn." << endl;
   painter.drawParticles(debugger);
+  cout << "\tMAIN THREAD -> particles drawn." << endl;
   painter.drawObservations(debugger, mc);       // draws the lines from position to markers
+  cout << "\tMAIN THREAD -> observations drawn." << endl;
   painter.drawPosition(mc, Position(0, 0, 0));  // draws the position of the robot
-  painter.drawGoal(goalX, goalY);
+  cout << "\tMAIN THREAD -> position of the robot drawn." << endl;
+  //painter.drawGoal(goalX, goalY);
+  //cout << "\tMAIN THREAD -> goal location drawn." << endl;
   painter.drawNodes(g); 
+  cout << "\tMAIN THREAD -> nodes drawn." << endl;
   painter.drawEdges(g);
+  cout << "\tMAIN THREAD -> edges drawn." << endl;
   if ( planner->getSource().getID() != Node::invalid_node_index ){
     painter.drawSource(g, planner->getSource().getX(), planner->getSource().getY()); 
+    cout << "\tMAIN THREAD -> source point drawn." << endl;
   }
   if ( planner->getTarget().getID() != Node::invalid_node_index ){
     painter.drawTarget(g, planner->getTarget().getX(), planner->getTarget().getY());
+    cout << "\tMAIN THREAD -> target drawn." << endl;
   }
-  if ( !planner->getPath().empty() )
+  if ( !planner->getPath().empty() ){
     painter.drawPath(g, planner->getPath());
+    cout << "\tMAIN THREAD -> path drawn." << endl;
+  }
   glutSwapBuffers();
 }
 
@@ -285,7 +296,6 @@ int main(int argc, char **argv)
 	    // ignore the rest of the line.
 	    getline(configFile, tmp); 
 	  }
-
 	} 
 
 	configFile.close();
@@ -333,8 +343,8 @@ int main(int argc, char **argv)
     */      
 
     
-    BehaviorRunner bt(&robot, &pc); 
-    boost::thread * behaviorThread = new boost::thread(bt); 
+    Controller ct(&robot); 
+    boost::thread * controllerThread = new boost::thread(ct); 
 
     if ( visualDEBUG ) {
       debugger = new MonteCarloVisualDebugger();
@@ -342,21 +352,22 @@ int main(int argc, char **argv)
       
       glutInit(&argc, argv);
       glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
-      glutInitWindowSize(myMap->getLength() + 100 * 2, myMap->getHeight() * 2);
+      glutInitWindowSize(myMap->getLength() * 2, myMap->getHeight() * 2);
       glutInitWindowPosition(100, 100);
       glutCreateWindow(argv[0]);
       init();
-      glutEstablishOverlay();
+      //glutEstablishOverlay();
+
       // register callbacks
       glutDisplayFunc(draw);
       glutReshapeFunc(reshape);
       glutMouseFunc(mouse);
       glutKeyboardFunc(keyboard);
-      glutOverlayDisplayFunc(drawFog);
-      glutPostOverlayRedisplay();
+      //glutOverlayDisplayFunc(drawFog);
+      //glutPostOverlayRedisplay();
       
       glutSetCursor(GLUT_CURSOR_CROSSHAIR);
-      glutTimerFunc(100, displayObservations, 0);      
+      glutTimerFunc(1, displayObservations, 0);      
       glutMainLoop();  
     }
   
@@ -368,7 +379,6 @@ int main(int argc, char **argv)
 	 << "Player Server port: " << player_port << endl;
     exit(1);
   }
-  
   
   return 0;
 }

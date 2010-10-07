@@ -8,7 +8,7 @@
 
 #include "InterfaceToLocalization.h"
 
-#define DEBUG false
+#define ITL_DEBUG true
 #define COLOR_PINK 0
 #define COLOR_YELLOW 1
 #define COLOR_BLUE 2
@@ -57,13 +57,13 @@ void InterfaceToLocalization::update() {
   //		return;
 
   if (!isMoving()){
-    //cout << "robot is not moving. updating observations" << endl;
+    cout << "robot is not moving. updating observations" << endl;
     updateObservations();
   }
 
   Move lastMove = getLastMove();
   if (obs.size() > 0 || lastMove.getX() + lastMove.getTheta() != 0) {
-    //cout << "updating filter" << endl;
+    cout << "updating filter" << endl;
     mc->updateFilter(lastMove, obs);
     
     if (lastMove.getX() != 0 || lastMove.getTheta() != 0) {
@@ -130,10 +130,12 @@ Move InterfaceToLocalization::getLastMove() {
 
 void InterfaceToLocalization::updateObservations() {
   robotMutex.lock();
+
+  cout << "updating observations" << endl;
   
   obs.clear();
 
-  if ( DEBUG )
+  if ( ITL_DEBUG )
     cout << endl << " ************************************ Observation Update **********************************" << endl;
 
   if (!bfp->IsFresh()) {
@@ -168,12 +170,13 @@ void InterfaceToLocalization::updateObservations() {
   bfp->NotFresh();
 
   /* Process blobs: join overlapping blobs of the same color */
-  cout << "before join" << endl; 
-  printBlobs(pinkBlobs); 
-  printBlobs(yellowBlobs); 
-  printBlobs(greenBlobs); 
-  printBlobs(blueBlobs); 
-  printBlobs(orangeBlobs); 
+  if (ITL_DEBUG) {
+    printBlobs(pinkBlobs); 
+    printBlobs(yellowBlobs); 
+    printBlobs(greenBlobs); 
+    printBlobs(blueBlobs); 
+    printBlobs(orangeBlobs); 
+  }
 
   joinBlobs(pinkBlobs); 
   joinBlobs(yellowBlobs); 
@@ -181,12 +184,13 @@ void InterfaceToLocalization::updateObservations() {
   joinBlobs(blueBlobs); 
   joinBlobs(orangeBlobs); 
 
-  cout << "after join" << endl; 
-  printBlobs(pinkBlobs); 
-  printBlobs(yellowBlobs); 
-  printBlobs(greenBlobs); 
-  printBlobs(blueBlobs); 
-  printBlobs(orangeBlobs); 
+  if (ITL_DEBUG) {
+    printBlobs(pinkBlobs); 
+    printBlobs(yellowBlobs); 
+    printBlobs(greenBlobs); 
+    printBlobs(blueBlobs); 
+    printBlobs(orangeBlobs); 
+  }
 
   /* Calling order of finding marker functions is crucial!. Everytime one of these are called it erases the color 
      blobs from observations. correct order of search should be room (3 colors), corner (2 colors) 
@@ -201,7 +205,7 @@ void InterfaceToLocalization::updateObservations() {
   vector<Observation> blueOverOrangeOverYellow = findRoomMarkersFromBlobs(blueBlobs, orangeBlobs, yellowBlobs, "b/o/y");
   vector<Observation> blueOverYellowOverOrange = findRoomMarkersFromBlobs(blueBlobs, yellowBlobs, orangeBlobs, "b/y/o");
   
-  if ( DEBUG ){
+  if ( ITL_DEBUG ){
     cout << "checked room markers" << endl; 
     cout << "bpy:" << blueOverPinkOverYellow.size() << ", byp:" << blueOverYellowOverPink.size()
 	 << ", bop:" << blueOverOrangeOverPink.size() << ", bpo:" << blueOverPinkOverOrange.size()
@@ -221,7 +225,7 @@ void InterfaceToLocalization::updateObservations() {
   if ( !blueOverYellowOverOrange.empty() ) 
     obs.insert(obs.begin(), blueOverYellowOverOrange.begin(), blueOverYellowOverOrange.end());
 
-  if ( DEBUG ) 
+  if ( ITL_DEBUG ) 
     cout << "size of obs: " << obs.size() << endl;
 
   // corridor markers
@@ -230,7 +234,7 @@ void InterfaceToLocalization::updateObservations() {
   vector<Observation> pinkOverYellowOverOrange = findRoomMarkersFromBlobs(pinkBlobs, yellowBlobs, orangeBlobs, "p/y/o");
   vector<Observation> yellowOverOrangeOverPink = findRoomMarkersFromBlobs(yellowBlobs, orangeBlobs, pinkBlobs, "y/o/p");
 
-  if ( DEBUG ){
+  if ( ITL_DEBUG ){
     cout << "checked corridor markers" << endl; 
     cout << "poy:" << pinkOverOrangeOverYellow.size() << ", ypo:" << yellowOverPinkOverOrange.size()
 	 << ", pyo:" << pinkOverYellowOverOrange.size() << ", yop:" << yellowOverOrangeOverPink.size() << endl;
@@ -245,7 +249,7 @@ void InterfaceToLocalization::updateObservations() {
   if ( !yellowOverOrangeOverPink.empty() ) 
     obs.insert(obs.begin(), yellowOverOrangeOverPink.begin(), yellowOverOrangeOverPink.end());
 
-  if ( DEBUG )
+  if ( ITL_DEBUG )
     cout << "size of obs: " << obs.size() << endl;
 
   // corner markers
@@ -254,7 +258,7 @@ void InterfaceToLocalization::updateObservations() {
   vector<Observation> pinkOverYellow = findCornerMarkersFromBlobs(pinkBlobs, yellowBlobs, "p/y");
   vector<Observation> yellowOverPink = findCornerMarkersFromBlobs(yellowBlobs, pinkBlobs, "y/p");
 
-  if ( DEBUG ) {
+  if ( ITL_DEBUG ) {
     cout << "checked corner markers" << endl; 
     cout << "yb:" << yellowOverBlue.size() << ", by:" << blueOverYellow.size()
 	 << ", py:" << pinkOverYellow.size() << ", yp:" << yellowOverPink.size() << endl;
@@ -269,14 +273,14 @@ void InterfaceToLocalization::updateObservations() {
   if ( !yellowOverPink.empty() ) 
     obs.insert(obs.begin(), yellowOverPink.begin(), yellowOverPink.end());
 
-  if ( DEBUG ) 
+  if ( ITL_DEBUG ) 
     cout << "size of obs: " << obs.size() << endl;
 
   // enterance markers
   vector<Observation> blue = findEnteranceMarkersFromBlobs(blueBlobs, "b");
   vector<Observation> orange = findEnteranceMarkersFromBlobs(orangeBlobs, "o");
 
-  if ( DEBUG ) {
+  if ( ITL_DEBUG ) {
     cout << "checked enterance markers" << endl; 
     cout << "b:" << blue.size() << ", o:" << orange.size() << endl;
   }
@@ -286,7 +290,7 @@ void InterfaceToLocalization::updateObservations() {
   if ( !orange.empty() ) 
     obs.insert(obs.begin(), orange.begin(), orange.end());
 
-  if ( DEBUG ){
+  if ( ITL_DEBUG ){
     cout << "size of obs: " << obs.size() << endl;
 
     for ( int i = 0; i < obs.size(); i++ ) {
@@ -295,7 +299,7 @@ void InterfaceToLocalization::updateObservations() {
   }
 
   displayObservationSummary();
-
+  
   robotMutex.unlock();
 }
 
@@ -330,7 +334,7 @@ vector<Observation> InterfaceToLocalization::findRoomMarkersFromBlobs(vector<pla
 								      vector<player_blobfinder_blob>& bottomBlobs, 
 								      string id) {
 
-  if ( DEBUG )
+  if ( ITL_DEBUG )
     cout << "checking 3 color markers :" << id << endl;
   
   vector<Observation> ob;
@@ -356,7 +360,7 @@ vector<Observation> InterfaceToLocalization::findRoomMarkersFromBlobs(vector<pla
 	player_blobfinder_blob middle = middleBlobs[k];
 	player_blobfinder_blob top = topBlobs[i]; 
 	
-	if ( DEBUG ) {
+	if ( ITL_DEBUG ) {
 	  cout << "top "; 
 	  printBlobInfo(top); 
 	  cout << "middle "; 
@@ -368,7 +372,7 @@ vector<Observation> InterfaceToLocalization::findRoomMarkersFromBlobs(vector<pla
 	if (blobOnTopOf(top, middle) && blobOnTopOf(middle,bottom)) {
 	  // process blob: if there is orange or yellow...TO DO
 	  
-	  if ( DEBUG ) 
+	  if ( ITL_DEBUG ) 
 	    cout << "top, middle and bottom blobs are on top of each other. room marker found!" << endl;
 	  Observation observation = Observation(id, 
 						map,
@@ -385,7 +389,7 @@ vector<Observation> InterfaceToLocalization::findRoomMarkersFromBlobs(vector<pla
 	  middleBlobs.erase(middleBlobs.begin()+k, middleBlobs.begin()+k+1);
 	  k--;
 	  if ( topBlobs.size()==0 || middleBlobs.size()==0 || bottomBlobs.size()==0 ) {
-	    if ( DEBUG )
+	    if ( ITL_DEBUG )
 	      cout << "one of the blob vectors is empty. jumping out of this function! " << endl; 
 	    return ob; 
 	  }
@@ -400,7 +404,7 @@ vector<Observation> InterfaceToLocalization::findCornerMarkersFromBlobs(vector<p
 									vector<player_blobfinder_blob>& bottomBlobs, 
 									string id) {
 
-  if ( DEBUG )
+  if ( ITL_DEBUG )
     cout << "checking 2 color markers" << endl;
   vector<Observation> ob;
  
@@ -409,7 +413,7 @@ vector<Observation> InterfaceToLocalization::findCornerMarkersFromBlobs(vector<p
       player_blobfinder_blob bottom = bottomBlobs[j];
       player_blobfinder_blob top = topBlobs[i]; 
       
-      if ( DEBUG ) {
+      if ( ITL_DEBUG ) {
 	cout << "top "; 
 	printBlobInfo(top); 
       
@@ -429,7 +433,7 @@ vector<Observation> InterfaceToLocalization::findCornerMarkersFromBlobs(vector<p
 	// This bit does more harm than good at the moment, in case you are wondering why it is commented out.
 	//if( (( topL / topW ) > 1 - eps && ( topL / topW ) < 1 + eps ) &&
 	//    (( bottomL / bottomW ) > 1 - eps && ( bottomL / bottomW ) < 1 + eps )) {
-	  if ( DEBUG ) 
+	  if ( ITL_DEBUG ) 
 	    cout << "top blob is on top of the bottom blob. Marker found! " << endl;
 	  
 	  Observation observation = Observation(id, 
@@ -444,7 +448,7 @@ vector<Observation> InterfaceToLocalization::findCornerMarkersFromBlobs(vector<p
 	  bottomBlobs.erase(bottomBlobs.begin()+j, bottomBlobs.begin()+j+1);
 	  j--;
 	  if ( topBlobs.size()==0 || bottomBlobs.size()==0 ){
-	    if ( DEBUG )
+	    if ( ITL_DEBUG )
 	      cout << "one of the blobs is empty. leaving function" << endl;
 	    return ob;
 	  }
@@ -453,6 +457,7 @@ vector<Observation> InterfaceToLocalization::findCornerMarkersFromBlobs(vector<p
 	  //cout << "looking at the blobs from an extreme angle. discarding observation" << endl; 
       }
       else 
+	if (ITL_DEBUG)
 	cout << "DISCARDING BLOB INFO: there is a significant gap between these blobs." << endl; 
     }
   }
@@ -463,20 +468,20 @@ vector<Observation> InterfaceToLocalization::findEnteranceMarkersFromBlobs(vecto
 									   string id) {
 
 
-  if ( DEBUG )
+  if ( ITL_DEBUG )
     cout << "checking single " << id << " markers" << endl;
   vector<Observation> ob;
   
-  if ( DEBUG ) 
+  if ( ITL_DEBUG ) 
     cout << id << " blobs size: " << blobs.size() << endl;
   for(int i = 0; i < blobs.size(); i++ ){
     player_blobfinder_blob blob = blobs[i];
-    if ( DEBUG ) 
+    if ( ITL_DEBUG ) 
       printBlobInfo(blob);
     
     // process blobs: check the length/width ratio. should be close to 2:1. just to be sure 1.5:1
     double d = static_cast<double>( blob.bottom - blob.top ) / ( blob.right - blob.left ); 
-    if (DEBUG)
+    if (ITL_DEBUG)
       cout << "h/w ratio: " << d << endl;
     if ( d > 1.75 ) {           
       Observation observation = Observation(id, 
@@ -489,14 +494,14 @@ vector<Observation> InterfaceToLocalization::findEnteranceMarkersFromBlobs(vecto
       blobs.erase(blobs.begin()+i, blobs.begin()+i+1);
       i--;
       if ( blobs.size() == 0 ) {
-	if ( DEBUG )  
+	if ( ITL_DEBUG )  
 	  cout << "oops now our blob is empty. leaving function" << endl;
 	return ob;
 	
       }
     }
     else 
-      if (DEBUG)
+      if (ITL_DEBUG)
 	cout << "discarding observation h/w ratio doesn't match" << endl; 
   }
   return ob;
