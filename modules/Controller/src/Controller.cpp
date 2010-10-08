@@ -12,8 +12,6 @@ using namespace std;
 void Controller::operator()() {
   // enter main loop
   while (rbt->GetState() != STATE_QUIT) {
-    cout << "CONTROLLER THREAD: updating state" << endl;
-
     // Update the robot.
     rbt->Update();
 

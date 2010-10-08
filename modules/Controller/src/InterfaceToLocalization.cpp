@@ -8,7 +8,7 @@
 
 #include "InterfaceToLocalization.h"
 
-#define ITL_DEBUG true
+#define ITL_DEBUG false
 #define COLOR_PINK 0
 #define COLOR_YELLOW 1
 #define COLOR_BLUE 2
@@ -57,13 +57,11 @@ void InterfaceToLocalization::update() {
   //		return;
 
   if (!isMoving()){
-    cout << "robot is not moving. updating observations" << endl;
     updateObservations();
   }
 
   Move lastMove = getLastMove();
   if (obs.size() > 0 || lastMove.getX() + lastMove.getTheta() != 0) {
-    cout << "updating filter" << endl;
     mc->updateFilter(lastMove, obs);
     
     if (lastMove.getX() != 0 || lastMove.getTheta() != 0) {
@@ -131,8 +129,6 @@ Move InterfaceToLocalization::getLastMove() {
 void InterfaceToLocalization::updateObservations() {
   robotMutex.lock();
 
-  cout << "updating observations" << endl;
-  
   obs.clear();
 
   if ( ITL_DEBUG )
@@ -178,11 +174,13 @@ void InterfaceToLocalization::updateObservations() {
     printBlobs(orangeBlobs); 
   }
 
-  joinBlobs(pinkBlobs); 
-  joinBlobs(yellowBlobs); 
-  joinBlobs(greenBlobs); 
-  joinBlobs(blueBlobs); 
-  joinBlobs(orangeBlobs); 
+  /*
+    joinBlobs(pinkBlobs); 
+    joinBlobs(yellowBlobs); 
+    joinBlobs(greenBlobs); 
+    joinBlobs(blueBlobs); 
+    joinBlobs(orangeBlobs); 
+  */
 
   if (ITL_DEBUG) {
     printBlobs(pinkBlobs); 
@@ -298,7 +296,8 @@ void InterfaceToLocalization::updateObservations() {
     }
   }
 
-  displayObservationSummary();
+  if ( ITL_DEBUG )
+    displayObservationSummary();
   
   robotMutex.unlock();
 }

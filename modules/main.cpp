@@ -46,7 +46,7 @@ void updateRobot() {
 void displayObservations(int unused) {
   updateRobot();
   glutPostRedisplay();
-  glutTimerFunc(1, displayObservations, 0);
+  glutTimerFunc(20, displayObservations, 0);
 }
 
 //called when the window changes position and size
@@ -115,40 +115,26 @@ void drawFog(void){
 }
 
 void draw(void) {
-  cout << "MAIN THREAD: Updating Visual Debugger canvas..." << endl; 
-
   MCPainter painter;
   glutUseLayer(GLUT_NORMAL);
   glClear(GL_COLOR_BUFFER_BIT);
   glClearColor(1,1,1,1); // set current color to white
 
   painter.drawMarkers(myMap);
-  cout << "\tMAIN THREAD -> markers drawn." << endl;
   painter.drawWalls(myMap);
-  cout << "\tMAIN THREAD -> walls drawn." << endl;
   painter.drawParticles(debugger);
-  cout << "\tMAIN THREAD -> particles drawn." << endl;
   painter.drawObservations(debugger, mc);       // draws the lines from position to markers
-  cout << "\tMAIN THREAD -> observations drawn." << endl;
   painter.drawPosition(mc, Position(0, 0, 0));  // draws the position of the robot
-  cout << "\tMAIN THREAD -> position of the robot drawn." << endl;
-  //painter.drawGoal(goalX, goalY);
-  //cout << "\tMAIN THREAD -> goal location drawn." << endl;
   painter.drawNodes(g); 
-  cout << "\tMAIN THREAD -> nodes drawn." << endl;
   painter.drawEdges(g);
-  cout << "\tMAIN THREAD -> edges drawn." << endl;
   if ( planner->getSource().getID() != Node::invalid_node_index ){
     painter.drawSource(g, planner->getSource().getX(), planner->getSource().getY()); 
-    cout << "\tMAIN THREAD -> source point drawn." << endl;
   }
   if ( planner->getTarget().getID() != Node::invalid_node_index ){
     painter.drawTarget(g, planner->getTarget().getX(), planner->getTarget().getY());
-    cout << "\tMAIN THREAD -> target drawn." << endl;
   }
   if ( !planner->getPath().empty() ){
     painter.drawPath(g, planner->getPath());
-    cout << "\tMAIN THREAD -> path drawn." << endl;
   }
   glutSwapBuffers();
 }
@@ -329,6 +315,7 @@ int main(int argc, char **argv)
     }
 
     mc = rbt->getMonteCarlo();
+
     Utils::initRandom();          // srand(time(NULL))
 
     g = new Graph(myMap, true, 30);		
@@ -367,9 +354,10 @@ int main(int argc, char **argv)
       //glutPostOverlayRedisplay();
       
       glutSetCursor(GLUT_CURSOR_CROSSHAIR);
-      glutTimerFunc(1, displayObservations, 0);      
+      glutTimerFunc(100, displayObservations, 0);      
       glutMainLoop();  
     }
+    controllerThread->join();
   
   }
   catch (PlayerError){
@@ -379,6 +367,6 @@ int main(int argc, char **argv)
 	 << "Player Server port: " << player_port << endl;
     exit(1);
   }
-  
+
   return 0;
 }

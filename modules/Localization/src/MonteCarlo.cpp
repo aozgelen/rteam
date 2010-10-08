@@ -61,6 +61,7 @@ Position MonteCarlo::getPosition() {
 //debug method for a bug where the position is outside the map or the theta is outside of
 // (-PI PI] interval
 void MonteCarlo::testAllParticlesInsideMap(char * message) {
+
 	int i;
 	for (i = 0; i < particles.size(); i++) {
 		//if particle is outside of the field reseed it;
