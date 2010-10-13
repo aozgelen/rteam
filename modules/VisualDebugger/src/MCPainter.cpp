@@ -241,7 +241,7 @@ void MCPainter::drawPath(Graph * g, list<int> nodes) {
   }
 }
 
-void MCPainter::drawParticles(MonteCarloVisualDebugger * debugger) {
+void MCPainter::drawParticles(MonteCarloDebugger * debugger) {
   glBegin(GL_POINTS);
   {
     glVertex2f(0, 0);
@@ -256,7 +256,7 @@ void MCPainter::drawParticles(MonteCarloVisualDebugger * debugger) {
   glEnd();
 }
 
-void MCPainter::drawObservations(MonteCarloVisualDebugger * debugger, MonteCarlo * mc) {
+void MCPainter::drawObservations(MonteCarloDebugger * debugger, MonteCarlo * mc) {
   vector<Observation> obs = debugger->getObservations();
   glBegin(GL_LINES);
   {

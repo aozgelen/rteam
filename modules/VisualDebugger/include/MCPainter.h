@@ -12,7 +12,7 @@
 #include <GL/glut.h>
 #include <Map.h>
 #include <MonteCarlo.h>
-#include "MonteCarloVisualDebugger.h"
+#include "MonteCarloDebugger.h"
 #include "Graph.h"
 #include "PathPlanner.h"
 
@@ -24,8 +24,8 @@ public:
   void drawGrid(Map * map);
   void drawMarkers(Map * map);
   void drawWalls(Map * map); 
-  void drawParticles(MonteCarloVisualDebugger * debugger);
-  void drawObservations(MonteCarloVisualDebugger * debugger, MonteCarlo * mc);
+  void drawParticles(MonteCarloDebugger * debugger);
+  void drawObservations(MonteCarloDebugger * debugger, MonteCarlo * mc);
   void drawPosition(MonteCarlo * mc, Position realPosition);
   //void drawGoal(double goalX, double goalY);
   

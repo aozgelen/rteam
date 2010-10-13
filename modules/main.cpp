@@ -7,7 +7,7 @@
 #include "libplayerc++/playerc++.h"
 using namespace PlayerCc;
 
-#include "MonteCarloVisualDebugger.h"
+#include "MonteCarloDebugger.h"
 #include "MCPainter.h"
 #include "InterfaceToLocalization.h"
 #include "Surveyor.h"
@@ -25,7 +25,7 @@ using namespace std;
 Map * myMap;                           // for all robots
 InterfaceToLocalization * rbt;         // specific to each robot? 
 MonteCarlo * mc;                       // specific to each robot? 
-MonteCarloVisualDebugger * debugger;   // specific to each robot.
+MonteCarloDebugger * debugger;   // specific to each robot.
 Graph * g;                             // this is the navgraph for all robots, given the map. 
 PathPlanner * planner;                 // specific to each robot.
 
@@ -334,7 +334,7 @@ int main(int argc, char **argv)
     boost::thread * controllerThread = new boost::thread(ct); 
 
     if ( visualDEBUG ) {
-      debugger = new MonteCarloVisualDebugger();
+      debugger = new MonteCarloDebugger();
       mc->setDebugger(debugger);
       
       glutInit(&argc, argv);
