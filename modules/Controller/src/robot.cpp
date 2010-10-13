@@ -114,7 +114,6 @@ void Robot::Update()
   
   // Update Player interfaces.
   mPlayerClient.ReadIfWaiting(); // which one?  
-  //mPlayerClient.Read();          // ?
   itl->update();
 
   // Maintain the state machine.

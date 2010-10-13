@@ -44,7 +44,14 @@ public:
   MonteCarlo * getMonteCarlo() {
     return mc;
   }
-  
+
+  void setMCDebugger(){
+    debugger = new MonteCarloDebugger(); 
+    mc->setDebugger(debugger); 
+  }
+
+  MonteCarloDebugger* getMCDebugger(){ return debugger; }
+
   vector<Observation> getObservations() {
     robotMutex.lock();
     vector<Observation> observations = obs;
@@ -71,6 +78,7 @@ public:
 protected:
   MonteCarlo * mc;
   //PlayerClient * robot;
+  MonteCarloDebugger * debugger; 
   CameraProxy * cp;
   BlobfinderProxy * bfp;
   Position2dProxy * p2d;

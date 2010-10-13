@@ -16,7 +16,7 @@ public:
   PathPlanner(Graph g, Node s, Node t): navGraph(g), source(s), target(t){}
   void calcPath(); 
   list<int> getPath(){ return path; }
-  Graph getGraph(){ return navGraph; }
+  Graph* getGraph(){ return &navGraph; }
   Node getSource(){ return source; }
   void setSource(Node s){ source = s; } 
   Node getTarget(){ return target; }

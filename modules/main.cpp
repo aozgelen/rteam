@@ -301,6 +301,14 @@ int main(int argc, char **argv)
     // connect to the player server
     PlayerClient pc(player_hostname, player_port);
 
+    //Controller ct(&pc, myMap, label, type);
+    /*ct.initMCDebugger();
+    rbt = ct.getInterfaceToLocalization(); 
+    debugger = ct.getMCDebugger();
+    mc = rbt->getMonteCarlo();
+    planner = ct.getPlanner(); 
+    g = ct.getNavgraph();
+    */
     rbt = new Surveyor(myMap);  // this sets the interface to localization
     
     // startup the robot
@@ -308,13 +316,13 @@ int main(int argc, char **argv)
     
     // connect robot to the central server. nothing happens if it fails so be careful
     if (!robot.Connect(central_server_hostname, central_server_port)) {
+      //if (!ct.getRobot()->Connect(central_server_hostname, central_server_port)) {
       cerr << "Failed to establish a connection to the Central Server.\n"
 	   << "Central Server hostname: " << central_server_hostname << "\n"
 	   << "Central Server port: " << central_server_port << endl;
       exit(1);
     }
 
-    mc = rbt->getMonteCarlo();
 
     Utils::initRandom();          // srand(time(NULL))
 
@@ -330,10 +338,12 @@ int main(int argc, char **argv)
     */
 
     
-    Controller ct(&robot); 
+    //Controller ct(&robot); 
+    Controller ct(&pc, &robot, myMap, rbt, planner, g);
     boost::thread * controllerThread = new boost::thread(ct); 
 
     if ( visualDEBUG ) {
+      mc = rbt->getMonteCarlo();
       debugger = new MonteCarloDebugger();
       mc->setDebugger(debugger);
       
