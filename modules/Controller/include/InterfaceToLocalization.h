@@ -22,7 +22,8 @@ using namespace PlayerCc;
 
 class InterfaceToLocalization {
 public:
-  InterfaceToLocalization(Map * map, int fieldOfVision, PlayerClient * robot);
+  //InterfaceToLocalization(Map * map, int fieldOfVision, PlayerClient * robot);
+  InterfaceToLocalization(Map * map, int fieldOfVision);
 
   void update();
   void move(Position relativePosition);
@@ -60,13 +61,16 @@ public:
 
   bool isMoving();
 
+  void setBlobFinderProxy(PlayerClient*);
+  void setPosition2dProxy(PlayerClient*);
+
   void printBlobColor(player_blobfinder_blob);
   void printBlobs(vector<player_blobfinder_blob>& ); 
   void printBlobInfo(player_blobfinder_blob);
 
 protected:
   MonteCarlo * mc;
-  PlayerClient * robot;
+  //PlayerClient * robot;
   CameraProxy * cp;
   BlobfinderProxy * bfp;
   Position2dProxy * p2d;

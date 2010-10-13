@@ -17,6 +17,10 @@ using namespace std;
 Robot::Robot(PlayerClient& pc, InterfaceToLocalization * i, string id, string type, Behavior* bp)
   :mPlayerClient(pc), mIOService(), mSocket(mIOService), itl(i), mBehavior(bp), mNameID(id), mTypeID(type)
 {
+  // setup interface to localization
+  itl->setBlobFinderProxy(&pc); 
+  itl->setPosition2dProxy(&pc); 
+
   // Initialize robot capabilities.
   init_provides();
   
@@ -106,6 +110,13 @@ void Robot::Update()
   
   error_code ec; // Used to check for errors.
 	
+  // update the sensor readings 
+  
+  // Update Player interfaces.
+  mPlayerClient.ReadIfWaiting(); // which one?  
+  //mPlayerClient.Read();          // ?
+  itl->update();
+
   // Maintain the state machine.
   switch (mCurrentState) {
   case STATE_INIT: {
@@ -143,10 +154,7 @@ void Robot::Update()
     do_state_change(STATE_QUIT);
   } break;
   }
-  
-  // Update Player interfaces.
-  mPlayerClient.ReadIfWaiting();
-  
+
   // Update behavior.
   if (mBehavior && !mPossessed) {
     mBehavior->Update();

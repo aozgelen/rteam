@@ -16,8 +16,8 @@
 #define COLOR_ORANGE 4
 
 InterfaceToLocalization::InterfaceToLocalization(Map * map, 
-						 int fieldOfVision,
-						 PlayerClient * robot) {
+						 int fieldOfVision){
+  //PlayerClient * robot) {
 
   // this way of locking and unlocking the mutex is error prone in the face of possible
   // exceptions thrown in between. instead use boost::mutex:scoped_lock lock(robotMutex) 
@@ -33,9 +33,9 @@ InterfaceToLocalization::InterfaceToLocalization(Map * map,
   this->map = map;
   this->fov = fieldOfVision;
   
-  this->robot = robot;
-  bfp = new BlobfinderProxy(robot, 0);
-  p2d = new Position2dProxy(robot, 0);
+  //this->robot = robot;
+  //bfp = new BlobfinderProxy(robot, 0);
+  //p2d = new Position2dProxy(robot, 0);
   
   destination = Position(0, 0, 0);
 
@@ -43,16 +43,20 @@ InterfaceToLocalization::InterfaceToLocalization(Map * map,
   robotMutex.unlock();
 }
 
+void InterfaceToLocalization::setBlobFinderProxy(PlayerClient* pc) { bfp = new BlobfinderProxy(pc, 0); }
+
+void InterfaceToLocalization::setPosition2dProxy(PlayerClient* pc) { p2d = new Position2dProxy(pc, 0); }
+
 
 /* Updates the observations and the mc filter if the robot is on the move or 
    changed it's position since last update 
 */
 void InterfaceToLocalization::update() {
 
-  robotMutex.lock();
+  /*robotMutex.lock();
   robot->Read();
   robotMutex.unlock();
-
+  */
   //	if (!p2d->IsFresh() && !bfp->IsFresh())
   //		return;
 

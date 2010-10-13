@@ -301,7 +301,7 @@ int main(int argc, char **argv)
     // connect to the player server
     PlayerClient pc(player_hostname, player_port);
 
-    rbt = new Surveyor(myMap, &pc);  // this sets the interface to localization
+    rbt = new Surveyor(myMap);  // this sets the interface to localization
     
     // startup the robot
     Robot robot(pc, rbt, label, type);
@@ -327,7 +327,7 @@ int main(int argc, char **argv)
     /*
       Loiter behavior(pc);
       robot.SetBehavior(&behavior);
-    */      
+    */
 
     
     Controller ct(&robot); 

@@ -1,13 +1,13 @@
-#ifndef _LOITER_H
-#define _LOITER_H
+#ifndef _EXPLORE_H
+#define _EXPLORE_H
 
 #include "behavior.h"
 
-class Loiter : public Behavior
+class Explore : public Behavior
 {
  public:
-  Loiter(PlayerCc::PlayerClient& pc);
-  ~Loiter();
+  Explore(PlayerCc::PlayerClient& pc);
+  ~Explore();
   
   virtual void Restart();
   virtual void Stop();
@@ -21,7 +21,6 @@ class Loiter : public Behavior
   // Internal properties.
   bool mInitState;
   bool mIsMobile;
-  double xPos, yPos;
 };
 
 #endif

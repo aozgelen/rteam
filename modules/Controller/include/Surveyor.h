@@ -13,7 +13,7 @@
 class Surveyor: public InterfaceToLocalization {
 public:
   // InterfaceToLocalization( Map, FieldOfView, PlayerClient );
-	Surveyor(Map * map, PlayerClient * robot) : InterfaceToLocalization(map, 41, robot){
+	Surveyor(Map * map) : InterfaceToLocalization(map, 41){
 		setObservationVariance(1);
 	}
 };

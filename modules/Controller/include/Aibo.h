@@ -12,7 +12,7 @@
 
 class Aibo: public InterfaceToLocalization {
 public:
-	Aibo(Map * map, PlayerClient * robot) : InterfaceToLocalization(map, 59, robot){
+	Aibo(Map * map) : InterfaceToLocalization(map, 59){
 		setObservationVariance(.2);
 
 		printf("Set motor enable\n");
