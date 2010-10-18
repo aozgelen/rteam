@@ -19,6 +19,11 @@ public:
   bool operator<(const Node& n) const{
     return ( this->id < n.getID() );
   }
+  /*void operator=(const Node& n){
+    this->id = n.getID(); 
+    this->x = n.getX(); 
+    this->y = n.getY();
+    }*/
   void setID(int i) { id = i; }
   int getID() const { return id; }
   void setX(int x) { this->x = x; }

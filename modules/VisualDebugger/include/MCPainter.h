@@ -11,7 +11,7 @@
 #include <GL/gl.h>
 #include <GL/glut.h>
 #include <Map.h>
-#include <MonteCarlo.h>
+#include "Controller.h"
 #include "MonteCarloDebugger.h"
 #include "Graph.h"
 #include "PathPlanner.h"
@@ -25,16 +25,16 @@ public:
   void drawMarkers(Map * map);
   void drawWalls(Map * map); 
   void drawParticles(MonteCarloDebugger * debugger);
-  void drawObservations(MonteCarloDebugger * debugger, MonteCarlo * mc);
-  void drawPosition(MonteCarlo * mc, Position realPosition);
-  //void drawGoal(double goalX, double goalY);
+  void drawObservations(MonteCarloDebugger * debugger, InterfaceToLocalization * itl);
+  void drawPosition(InterfaceToLocalization * itl, Position realPosition);
   
   // for path planner
   void drawNodes(Graph * g);
   void drawEdges(Graph * g); 
   void drawSource(Graph * g, int x, int y); 
   void drawTarget(Graph * g, int x, int y);
-  void drawPath(Graph * g, list<int> nodes); 
+  void drawPath(InterfaceToLocalization*, PathPlanner*, Graph*, list<int>); 
+  void drawGoal(Graph * g, int goalX, int goalY);
 
   // for the fog. just testing for now. 
   void drawFogOfExploration();

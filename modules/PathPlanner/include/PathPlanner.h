@@ -21,6 +21,7 @@ public:
   void setSource(Node s){ source = s; } 
   Node getTarget(){ return target; }
   void setTarget(Node t){ target = t; } 
+  bool pathEmpty() { return ( path.size() > 0 ) ; }
 };
 
 #endif

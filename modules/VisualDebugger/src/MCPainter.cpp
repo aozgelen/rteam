@@ -223,8 +223,28 @@ void MCPainter::drawTarget(Graph * g, int x, int y){
   glEnd();
 }
 
-void MCPainter::drawPath(Graph * g, list<int> nodes) {
+void MCPainter::drawGoal(Graph * g, int x, int y){
+  glBegin(GL_POLYGON);
+  if ( g->isWithinBorders(x,y) ) {
+    glColor3f(0,0,1);
+    glVertex2i(x-2, y-2); 
+    glVertex2i(x-2, y+2); 
+    glVertex2i(x+2, y+2); 
+    glVertex2i(x+2, y-2); 
+  }
+  glEnd();
+}
+
+void MCPainter::drawPath(InterfaceToLocalization * itl, PathPlanner * planner, Graph * g, list<int> nodes) {
   if ( !nodes.empty() ) {
+    // draw a line between current position to first node in graph
+    Position pos = itl->getPosition();
+    glBegin(GL_LINES); 
+    glColor3f(0.5,0.5,0);
+    glVertex2f(pos.getX(), pos.getY()); 
+    glVertex2f(g->getNode(nodes.front()).getX(), g->getNode(nodes.front()).getY()); 
+    glEnd();
+
     // draw the lines between nodes
     list<int>::iterator iter;
     for( iter = nodes.begin(); iter != nodes.end(); ) {
@@ -238,6 +258,11 @@ void MCPainter::drawPath(Graph * g, list<int> nodes) {
       }
     }
     // draw a line between the last node to target
+    glBegin(GL_LINES); 
+    glColor3f(0.5,0.5,0);
+    glVertex2f(g->getNode(nodes.back()).getX(), g->getNode(nodes.back()).getY()); 
+    glVertex2f(planner->getTarget().getX(), planner->getTarget().getY()); 
+    glEnd();
   }
 }
 
@@ -256,14 +281,14 @@ void MCPainter::drawParticles(MonteCarloDebugger * debugger) {
   glEnd();
 }
 
-void MCPainter::drawObservations(MonteCarloDebugger * debugger, MonteCarlo * mc) {
+void MCPainter::drawObservations(MonteCarloDebugger * debugger, InterfaceToLocalization * itl) {
   vector<Observation> obs = debugger->getObservations();
   glBegin(GL_LINES);
   {
     for (int i = 0; i < obs.size(); i++) {
       glColor3f(1, 0, 1);
       
-      Position position = mc->getPosition();
+      Position position = itl->getPosition();
       glVertex2f(position.getX(), position.getY());
 
       int lineLen = 1000;
@@ -275,12 +300,18 @@ void MCPainter::drawObservations(MonteCarloDebugger * debugger, MonteCarlo * mc)
   glEnd();
 }
 
-void MCPainter::drawPosition(MonteCarlo * mc, Position realPosition) {
+/* current call for this function does not include a realPosition. That
+   should be added if there is such an info coming from an overhead camera 
+   or something of the sort 
+*/
+void MCPainter::drawPosition(InterfaceToLocalization * itl, Position realPosition) {
   //draw estimated position
   glBegin(GL_LINES);
   {
-    Position p = mc->getPosition();
-    glColor3f(1, 0, 0);
+    Position p = itl->getPosition();
+    double conf = itl->getConfidence() / 2; // % 0-50
+    
+    glColor3f(0.5 + conf, 0, 0);  // more confident the robot is about its localization more red it will get
     int lineLen = 15;
     int x1 = p.getX() - lineLen * cos(p.getTheta() + .3);
     int y1 = p.getY() - lineLen * sin(p.getTheta() + .3);
@@ -306,16 +337,3 @@ void MCPainter::drawPosition(MonteCarlo * mc, Position realPosition) {
   }
   glEnd();
 }
-
-/*void MCPainter::drawGoal(double goalX, double goalY) {
-  glBegin(GL_LINES);
-  {
-    glColor3f(1, 0, 0);
-    glVertex2f(goalX - 10, goalY);
-    glVertex2f(goalX + 10, goalY);
-    glVertex2f(goalX, goalY + 10);
-    glVertex2f(goalX, goalY - 10);
-  }
-  glEnd();
-}
-*/

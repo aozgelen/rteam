@@ -7,9 +7,8 @@
 #include "libplayerc++/playerc++.h"
 using namespace PlayerCc;
 
-#include "MonteCarloDebugger.h"
-#include "MCPainter.h"
 #include "InterfaceToLocalization.h"
+#include "VisualDebugger.h"
 #include "Surveyor.h"
 #include "Aibo.h"
 #include <DataSerializer.h>
@@ -22,123 +21,39 @@ using namespace PlayerCc;
 #include <cstring>
 using namespace std;
 
+Controller * ct; 
+VisualDebugger * vD; 
+
 Map * myMap;                           // for all robots
 InterfaceToLocalization * rbt;         // specific to each robot? 
-MonteCarlo * mc;                       // specific to each robot? 
-MonteCarloDebugger * debugger;   // specific to each robot.
-Graph * g;                             // this is the navgraph for all robots, given the map. 
-PathPlanner * planner;                 // specific to each robot.
-
-//double goalX;
-//double goalY;
 
 void init(void) {
   glClearColor(0.0, 0.0, 0.0, 0.0);
   glShadeModel(GL_FLAT);
 }
 
-void updateRobot() {
-  rbt->update();
-}
-
 //this method is called every couple of seconds and updates virtual robot position and
 //MC.  Then it displays the current state of MC by indirectly calling "draw()".
 void displayObservations(int unused) {
-  updateRobot();
   glutPostRedisplay();
   glutTimerFunc(20, displayObservations, 0);
 }
 
-//called when the window changes position and size
-void reshape(int w, int h) {
-  glViewport(0, 0, (GLsizei) w, (GLsizei) h);
-  glMatrixMode(GL_PROJECTION);
-  glLoadIdentity();
-  gluOrtho2D(-10, myMap->getLength() + 10, -10, myMap->getHeight() + 10);
-}
+/* Wrapper functions for GLUT callback registers. functions of another class cannot be 
+   used as functors. This is the workaround 
+*/
+void reshape(int w, int h){ vD->reshape(w,h); } 
 
-void keyboard(unsigned char key, int x, int y){
-  if (key == 'w' || key == 'W')
-    rbt->move(Position(10, 0, 0));
-  if (key == 's' || key == 'S')
-    rbt->setSpeed(-10, 0, 0);
-  if (key == 'a' || key == 'A')
-    rbt->move(Position(0, 0, Utils::toRadians(22.5)));
-  if (key == 'd' || key == 'D')
-    rbt->move(Position(0, 0, Utils::toRadians(-22.5)));
-}
+void keyboard(unsigned char key, int x, int y){ vD->keyboard(key,x,y); } 
 
-int getWinX(int x) {
-  int wx = ( (double) (glutGet(GLUT_WINDOW_WIDTH) - 40)/ (double) myMap->getLength() ) * x + 20; 
-  return wx; 
-}
+void keyboardSpecial(int key, int x, int y){ vD->keyboardSpecial(key,x,y); } 
 
-int getWinY(int y) {
-  int wy = ( myMap->getHeight() - y ) * ( (double)( glutGet(GLUT_WINDOW_HEIGHT)- 20 ) / (double) myMap->getHeight() ) + 10;
-  return wy;
-}
+void mouse(int button, int state, int x, int y){ vD->mouse(button, state, x, y); }
 
-int getMapX(int x) {
-  int mx = ( x - 20 ) * ( (double) myMap->getLength()/ (double) (glutGet(GLUT_WINDOW_WIDTH)-40)); 
-  return mx; 
-}
+void draw(void){ vD->draw(); }
 
-int getMapY(int y){
-  int my = myMap->getHeight() - (( y - 10 ) * ((double) myMap->getHeight() /(double) (glutGet(GLUT_WINDOW_HEIGHT) - 20) ));
-  return my;
-}
-
-void mouse(int button, int state, int x, int y) {
-  if (button == GLUT_LEFT_BUTTON) {
-    if (state == GLUT_DOWN){
-      Position p = rbt->getPosition();
-      
-      Node s(1, p.getX(), p.getY()); 
-      planner->setSource(s); 
-
-      Node t(1, getMapX(x), getMapY(y)); 
-      planner->setTarget(t); 
-      planner->calcPath();
-    }			
-  }
-}
-
-// this bit doesn't work. maybe due to graphix card requirement? 
-void drawFog(void){
-  MCPainter painter; 
-  glutUseLayer(GLUT_OVERLAY);
-  glClear(GL_COLOR_BUFFER_BIT);
-  glClearColor(0.25,0.25,0.25,0.25); // set current color to black
-  // call some functioni from MCPainter to draw the fog on top of the map
-  painter.drawFogOfExploration(); 
-  glutSwapBuffers(); 
-}
-
-void draw(void) {
-  MCPainter painter;
-  glutUseLayer(GLUT_NORMAL);
-  glClear(GL_COLOR_BUFFER_BIT);
-  glClearColor(1,1,1,1); // set current color to white
-
-  painter.drawMarkers(myMap);
-  painter.drawWalls(myMap);
-  painter.drawParticles(debugger);
-  painter.drawObservations(debugger, mc);       // draws the lines from position to markers
-  painter.drawPosition(mc, Position(0, 0, 0));  // draws the position of the robot
-  painter.drawNodes(g); 
-  painter.drawEdges(g);
-  if ( planner->getSource().getID() != Node::invalid_node_index ){
-    painter.drawSource(g, planner->getSource().getX(), planner->getSource().getY()); 
-  }
-  if ( planner->getTarget().getID() != Node::invalid_node_index ){
-    painter.drawTarget(g, planner->getTarget().getX(), planner->getTarget().getY());
-  }
-  if ( !planner->getPath().empty() ){
-    painter.drawPath(g, planner->getPath());
-  }
-  glutSwapBuffers();
-}
-
+void drawFog(void){ vD->drawFog(); }
+/* end wrapper functions */
 
 void createMap_defaultField() {
   myMap = new Map(500, 400);
@@ -215,6 +130,7 @@ void displayUsage(int argc, char** argv){
 
 int main(int argc, char **argv)
 {
+  Utils::initRandom();          // srand(time(NULL))
   bool visualDEBUG = false; 
 
   // usage: <exec> [-d] [-f <config-file>]. to add more flags add it to the end of string followed
@@ -301,51 +217,26 @@ int main(int argc, char **argv)
     // connect to the player server
     PlayerClient pc(player_hostname, player_port);
 
-    //Controller ct(&pc, myMap, label, type);
-    /*ct.initMCDebugger();
-    rbt = ct.getInterfaceToLocalization(); 
-    debugger = ct.getMCDebugger();
-    mc = rbt->getMonteCarlo();
-    planner = ct.getPlanner(); 
-    g = ct.getNavgraph();
-    */
     rbt = new Surveyor(myMap);  // this sets the interface to localization
-    
+
     // startup the robot
     Robot robot(pc, rbt, label, type);
     
+    ct = new Controller(&pc, &robot, myMap, rbt);
+    //ct = new Controller(&pc, myMap, rbt, label, type);
+    
     // connect robot to the central server. nothing happens if it fails so be careful
-    if (!robot.Connect(central_server_hostname, central_server_port)) {
-      //if (!ct.getRobot()->Connect(central_server_hostname, central_server_port)) {
+    if (!ct->getRobot()->Connect(central_server_hostname, central_server_port)) {
       cerr << "Failed to establish a connection to the Central Server.\n"
 	   << "Central Server hostname: " << central_server_hostname << "\n"
 	   << "Central Server port: " << central_server_port << endl;
       exit(1);
     }
 
-
-    Utils::initRandom();          // srand(time(NULL))
-
-    g = new Graph(myMap, true, 30);		
-    
-    Node n; 
-    planner = new PathPlanner(*g,n,n); 
-    
-    // select a behavior
-    /*
-      Loiter behavior(pc);
-      robot.SetBehavior(&behavior);
-    */
-
-    
-    //Controller ct(&robot); 
-    Controller ct(&pc, &robot, myMap, rbt, planner, g);
-    boost::thread * controllerThread = new boost::thread(ct); 
+    boost::thread * controllerThread = new boost::thread(*ct); 
 
     if ( visualDEBUG ) {
-      mc = rbt->getMonteCarlo();
-      debugger = new MonteCarloDebugger();
-      mc->setDebugger(debugger);
+      vD = new VisualDebugger(myMap, ct);
       
       glutInit(&argc, argv);
       glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
@@ -360,6 +251,7 @@ int main(int argc, char **argv)
       glutReshapeFunc(reshape);
       glutMouseFunc(mouse);
       glutKeyboardFunc(keyboard);
+      glutSpecialFunc(keyboardSpecial);  // special key strokes arrows, shift etc. 
       //glutOverlayDisplayFunc(drawFog);
       //glutPostOverlayRedisplay();
       

@@ -1,4 +1,4 @@
-RTEAM is a robot control software built for running experiments on human supervised multi-robot teams. It is developed and maintained by Metrobotics team at CUNY Brooklyn College. This document aims to give an idea about how RTEAM code and it's utilities can be obtained, built and ran.
+x1RTEAM is a robot control software built for running experiments on human supervised multi-robot teams. It is developed and maintained by Metrobotics team at CUNY Brooklyn College. This document aims to give an idea about how RTEAM code and it's utilities can be obtained, built and ran.
 
 Obtaining the code: 
 
@@ -28,7 +28,12 @@ Running rteam code:
 
 3) Run the controller 
    - cd into <PROJECT_PATH>/modules
-   - ./controller  
+   - ./controller -d -f <config-file>
+   [-d] option runs the visual debugger and is optional
+   f option is mandatory at the moment and specifies the configuration file name 
+   that contains the map-file, central server and player server
+   info (ip and port). An example configuration file is: 
+   <PROJECT_PATH>/modules/config-files/robot.conf 
    If no errors occured in 1) and 2) then this should work fine. 
    If your code is autonomous, meaning doesn't require input from and operator, this is where you should stop. 
 

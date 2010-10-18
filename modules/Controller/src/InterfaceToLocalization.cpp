@@ -2,7 +2,7 @@
  * InterfaceToLocalization.cpp
  *
  * Author: George Rabanca 
- *         Tuna Ozgelen 
+ *         Tuna Ozgelen (mod.)
  *
  */
 
@@ -53,6 +53,8 @@ void InterfaceToLocalization::setPosition2dProxy(PlayerClient* pc) { p2d = new P
 */
 void InterfaceToLocalization::update() {
 
+  string label = "\tInterfaceToLocalization::update()> ";
+
   /*robotMutex.lock();
   robot->Read();
   robotMutex.unlock();
@@ -61,30 +63,52 @@ void InterfaceToLocalization::update() {
   //		return;
 
   if (!isMoving()){
+    cout<< label << "updateObservations" << endl;
     updateObservations();
   }
 
   Move lastMove = getLastMove();
+  cout << label << "last move(" << lastMove.getX() << "," 
+       << lastMove.getY() << "," << lastMove.getTheta() << ")" << endl;
+  displayObservationSummary();
   if (obs.size() > 0 || lastMove.getX() + lastMove.getTheta() != 0) {
+    cout<< label << "updateFilter" << endl;
     mc->updateFilter(lastMove, obs);
     
-    if (lastMove.getX() != 0 || lastMove.getTheta() != 0) {
-      
-      //printf("Updated filter with move: %f, %f, %f\n", lastMove.getX(), lastMove.getY(), lastMove.getTheta());
-    }
+    /*if (lastMove.getX() != 0 || lastMove.getTheta() != 0) {
+      printf("updated filter with move: %f, %f, %f\n", lastMove.getX(), lastMove.getY(), lastMove.getTheta());      
+      }*/
   }
 }
 
 void InterfaceToLocalization::move(Position relativePosition) {
+  string label = "\tInterfaceToLocalization::move(destination)> ";
+
   robotMutex.lock();
+  // convert x, y (cm) to (m)
   destination = Position(relativePosition.getX() / 100.0,
 			 relativePosition.getY() / 100, 
 			 relativePosition.getTheta());
 
-  p2d->SetOdometry(0, 0, 0);
-  p2d->GoTo(destination.getX(), destination.getY(), destination.getTheta());
+  p2d->ResetOdometry();
+  cout << label << "after reseting the odometry at time:" 
+       << p2d->GetElapsedTime() << " p2d(" 
+       << p2d->GetXPos() << "," 
+       << p2d->GetYPos() << "," 
+       << p2d->GetYaw() << ")" << endl;
+
+  cout << label << "destination: (" 
+       << destination.getX() << "," 
+       << destination.getY() << "," 
+       << destination.getTheta() << ")" << endl;
   
-  //printf("destination: %f, %f, %f\n", destination.getX(), destination.getY(), destination.getTheta());
+  p2d->GoTo(destination.getX(), destination.getY(), destination.getTheta());
+
+  cout << label << "time and position after GoTo:" 
+       << p2d->GetElapsedTime() << " - (" 
+       << p2d->GetXPos() << "," 
+       << p2d->GetYPos() << "," 
+       << p2d->GetYaw() << ")" << endl;
 
   cumulativeMove = Position(0, 0, 0);
   robotMutex.unlock();
@@ -94,35 +118,52 @@ bool InterfaceToLocalization::isMoving() {
   robotMutex.lock();
   bool isMoving = !(destination == Position(0, 0, 0));
   robotMutex.unlock();
+  cout << "\tInterfaceToLocalization::isMoving(): " << isMoving << endl;
   
   return isMoving;
 }
 
 Move InterfaceToLocalization::getLastMove() {
   Move lastMove;
+  string label = "\tInterfaceToLocalization::getLastMove()> " ;
   
   robotMutex.lock();
 
-  if (destination == Position(0, 0, 0))
+  if (destination == Position(0, 0, 0)){
+    cout << label << "destination is not set. last move is (0,0,0)" << endl;
     lastMove = Move(0, 0, 0);
+  }
   else {
     if (p2d->IsFresh()) {
       
       p2d->NotFresh();
-
+     cout << label << "new destination. p2d: (" 
+	  << p2d->GetXPos() << "," 
+	  << p2d->GetYPos() << "," 
+	  << p2d->GetYaw() << ")" << endl;
+     cout << label << "new destination. cumulativeMove: (" 
+	  << cumulativeMove.getX() << "," 
+	  << cumulativeMove.getY() << "," 
+	  << cumulativeMove.getTheta() << ")" << endl;
       double x = p2d->GetXPos() - cumulativeMove.getX();
       double y = p2d->GetYPos() - cumulativeMove.getY();
       double theta = p2d->GetYaw() - cumulativeMove.getTheta();
       cumulativeMove.moveRelative(Move(x, y, theta));
+      cout << label << "new destination. add to cumulativeMove: (" 
+	   << x << "," 
+	   << y << "," 
+	   << theta << ")" << endl;
+  
     }
 
     lastMove = Move(destination.getX() * 100, destination.getY() * 100, destination.getTheta());
 
-    //printf("reached destination\n");
+    cout << label 
+	 << "destination reached(?). destination, cumulativeMove, odometry is (0,0,0)" << endl;
     destination = Position(0, 0, 0);
     cumulativeMove = Position(0, 0, 0);
     
-    p2d->SetOdometry(0, 0, 0);
+    p2d->ResetOdometry();
   }
 
   robotMutex.unlock();
@@ -672,53 +713,59 @@ bool InterfaceToLocalization::isOverlapping(player_blobfinder_blob b1, player_bl
 }
 
 void InterfaceToLocalization::displayObservationSummary(){
-  if ( !obs.empty() )
-    cout << "************************* Observation Summary *************************** " << endl; 
-  vector<Observation>::iterator iter; 
-  vector<Observation> roomMarkers; 
-  vector<Observation> cornerMarkers; 
-  vector<Observation> enteranceMarkers; 
-  for ( iter = obs.begin(); iter != obs.end(); iter++ ){
-    int numberOfBlobs = 1;
-    string mark = iter->getMarkerId();
-    while ( mark.find("/") != string::npos ){
-      mark.replace(0, mark.find("/")+1, ""); 
-      numberOfBlobs++; 
-    }
-    switch( numberOfBlobs ) {
-    case 1: 
-      enteranceMarkers.push_back(*iter); 
-      break; 
-    case 2: 
-      cornerMarkers.push_back(*iter); 
-      break; 
-    case 3: 
-      roomMarkers.push_back(*iter);
-      break;
-    }
-  }
-
-  if ( roomMarkers.size() != 0 ) {
-    cout << roomMarkers.size() << " room markers found: " ; 
-    for ( vector<Observation>::iterator i = roomMarkers.begin(); i != roomMarkers.end(); i++ )
-      cout << i->getMarkerId() << " " ; 
-    cout << endl;
-  }
+  string label = "\tInterfaceToLocalization::displayObservationSummary()> " ;
   
-  if ( cornerMarkers.size() != 0 ) {
-    cout << cornerMarkers.size() << " corner markers found: " ; 
-    for ( vector<Observation>::iterator i = cornerMarkers.begin(); i != cornerMarkers.end(); i++ )
-      cout << i->getMarkerId() << " " ; 
-    cout << endl;
+  if ( !obs.empty() ){
+    //cout << "************************* Observation Summary *************************** " << endl; 
+    vector<Observation>::iterator iter; 
+    vector<Observation> roomMarkers; 
+    vector<Observation> cornerMarkers; 
+    vector<Observation> enteranceMarkers; 
+    for ( iter = obs.begin(); iter != obs.end(); iter++ ){
+      int numberOfBlobs = 1;
+      string mark = iter->getMarkerId();
+      while ( mark.find("/") != string::npos ){
+	mark.replace(0, mark.find("/")+1, ""); 
+	numberOfBlobs++; 
+      }
+      switch( numberOfBlobs ) {
+      case 1: 
+	enteranceMarkers.push_back(*iter); 
+	break; 
+      case 2: 
+	cornerMarkers.push_back(*iter); 
+	break; 
+      case 3: 
+	roomMarkers.push_back(*iter);
+	break;
+      }
+    }
+    
+    if ( roomMarkers.size() != 0 ) {
+      cout << "\t\t\t" << roomMarkers.size() << " room markers found: " ; 
+      for ( vector<Observation>::iterator i = roomMarkers.begin(); i != roomMarkers.end(); i++ )
+	cout << i->getMarkerId() << " " ; 
+      cout << endl;
+    }
+    
+    if ( cornerMarkers.size() != 0 ) {
+      cout << "\t\t\t" << cornerMarkers.size() << " corner markers found: " ; 
+      for ( vector<Observation>::iterator i = cornerMarkers.begin(); i != cornerMarkers.end(); i++ )
+	cout << i->getMarkerId() << " " ; 
+      cout << endl;
+    }
+    
+    if ( enteranceMarkers.size() != 0 ) {
+      cout << "\t\t\t" << enteranceMarkers.size() << " enterance markers found: " ; 
+      for ( vector<Observation>::iterator i = enteranceMarkers.begin(); i != enteranceMarkers.end(); i++ )
+	cout << i->getMarkerId() << " " ; 
+      cout << endl;
+    }
+    
+    //if ( !obs.empty() )
+    //cout << endl;
   }
-  
-  if ( enteranceMarkers.size() != 0 ) {
-    cout << enteranceMarkers.size() << " enterance markers found: " ; 
-    for ( vector<Observation>::iterator i = enteranceMarkers.begin(); i != enteranceMarkers.end(); i++ )
-      cout << i->getMarkerId() << " " ; 
-    cout << endl;
+  else{
+    cout << label << "No observations are available at this time!." << endl;
   }
-
-  if ( !obs.empty() )
-    cout << endl;
 }

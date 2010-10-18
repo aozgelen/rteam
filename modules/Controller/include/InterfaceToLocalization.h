@@ -33,6 +33,21 @@ public:
     robotMutex.unlock();
     return pos;
   }
+  /*Position getPosition(){
+    return mc->getDebugger()->getPosition();
+    }*/
+  
+  // remove this once the problem with observation update during motion is fixed
+  /*void forceUpdateObservations() { 
+    printf("forcing observation updates\n");
+    updateObservations(); 
+  }
+  // desperate attempt to fix the bug explained before forceUpdateObservations
+  Position getOdometry(){ 
+    Move m = getLastMove();
+    printf("last move in getOdometry(%f,%f,%f) \n", m.getX(), m.getY(), m.getTheta());
+    return Position(m.getX()*100, m.getY()*100, m.getTheta());  
+    }*/
 
   double getConfidence() {
     robotMutex.lock();

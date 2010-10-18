@@ -68,4 +68,11 @@ typedef unsigned char cmd_len_t;
 #define CAPS_RANGER      "ranger"
 #define CAPS_SONAR       "sonar"
 
+// Controller States
+#define CTRL_HALT 0
+#define CTRL_READY 1
+enum Mode{ MANUAL, MIXED_INIT, AUTO };  // Modes of operation: manual, mixed initiative and auto control
+#define KEY_CTRL_STEP 0          // sets the keyboard control commands the robot to move in discrete steps 
+#define KEY_CTRL_CONT 1          // sets the keyboard control commands the robot to move in continuous mode
+
 #endif

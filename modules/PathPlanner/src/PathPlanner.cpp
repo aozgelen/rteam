@@ -3,10 +3,10 @@
 
 void PathPlanner::calcPath(){
   //cout << "in calcPath." << endl;
-  source.printNode();
-  cout << endl; 
-  target.printNode();
-  cout << endl;
+  //source.printNode();
+  //cout << endl; 
+  //target.printNode();
+  //cout << endl;
   if ( source.getID() != Node::invalid_node_index && target.getID() != Node::invalid_node_index ){
     Node s, t;
     if ( navGraph.isNode(source) )
@@ -21,10 +21,11 @@ void PathPlanner::calcPath(){
       t = getClosestNode(target);
     }
 
-    astar newsearch(navGraph, s, t, 1);
-    path = newsearch.getPathToTarget();
+    //astar newsearch(navGraph, s, t, 1);
+    //path = newsearch.getPathToTarget();
+    path.push_back(t.getID()); 
     //newsearch.printPath();
-    pathCost = newsearch.getCostToTarget();
+    //pathCost = newsearch.getCostToTarget();
     
     smoothPath(); 
   }

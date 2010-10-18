@@ -37,6 +37,7 @@ MonteCarlo::MonteCarlo(Map * map) {
 
 void MonteCarlo::setRandomCoefficients(double thetaConfident,
 		double xyConfident, double theta, double xy) {
+
 	DELTA_RANDOM_THETA_CONFIDENT = thetaConfident;
 	DELTA_RANDOM_XY_CONFIDENT = xyConfident;
 	DELTA_RANDOM_THETA = theta;
@@ -61,14 +62,13 @@ Position MonteCarlo::getPosition() {
 //debug method for a bug where the position is outside the map or the theta is outside of
 // (-PI PI] interval
 void MonteCarlo::testAllParticlesInsideMap(char * message) {
-
 	int i;
 	for (i = 0; i < particles.size(); i++) {
 		//if particle is outside of the field reseed it;
 		Position pos = particles[i].getPosition();
 		if (!isInsideMap(particles[i]) || pos.getTheta() > PI || pos.getTheta()
 				<= -PI) {
-			std::cout << "Particle outside bounds: " << pos.getX() << "/"
+			std::cout<< "Particle outside bounds: " << pos.getX() << "/"
 					<< pos.getY() << "/" << pos.getTheta() << " " << message
 					<< std::endl;
 

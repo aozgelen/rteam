@@ -113,9 +113,9 @@ void Robot::Update()
   // update the sensor readings 
   
   // Update Player interfaces.
-  mPlayerClient.ReadIfWaiting(); // which one?  
+  mPlayerClient.ReadIfWaiting(); 
   itl->update();
-
+  
   // Maintain the state machine.
   switch (mCurrentState) {
   case STATE_INIT: {

@@ -40,6 +40,8 @@ public:
 	void setDebugger(MonteCarloDebugger * debugger) {
 		this->debugger = debugger;
 	}
+	
+	MonteCarloDebugger* getDebugger() { return debugger; }
 
 	void setRandomCoefficients(double thetaConfident, double xyConfident, double theta, double xy);
 
