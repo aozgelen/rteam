@@ -1,5 +1,5 @@
 /*
- * Robot.h
+ * InterfaceToLocalization.h
  *
  *  Created on: Jun 22, 2010
  *      Author: robotics
@@ -106,7 +106,9 @@ protected:
   int fov;						//the field of vision in degrees
   vector<Observation> obs;
   double observationVariance;
-  
+
+  bool positionEqual(Position p1, Position p2, double xt, double yt, double tt);
+
   double radiansToDegrees(double rad);
   double getAngle(double x);
 
@@ -115,8 +117,6 @@ protected:
   Move getLastMove();
 
   int getBlobColor(player_blobfinder_blob blob);
-
-  bool positionEqual(Position p1, Position p2);
 
   bool blobOnTopOf(player_blobfinder_blob top, player_blobfinder_blob bottom);
 

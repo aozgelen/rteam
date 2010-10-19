@@ -2,7 +2,7 @@
  * InterfaceToLocalization.cpp
  *
  * Author: George Rabanca 
- *         Tuna Ozgelen (mod.)
+ *         Tuna Ozgelen (currently maintaining)
  *
  */
 
@@ -17,8 +17,6 @@
 
 InterfaceToLocalization::InterfaceToLocalization(Map * map, 
 						 int fieldOfVision){
-  //PlayerClient * robot) {
-
   // this way of locking and unlocking the mutex is error prone in the face of possible
   // exceptions thrown in between. instead use boost::mutex:scoped_lock lock(robotMutex) 
   // this doesn't require unlocking and releases lock upon object leaving scope. However,
@@ -33,13 +31,9 @@ InterfaceToLocalization::InterfaceToLocalization(Map * map,
   this->map = map;
   this->fov = fieldOfVision;
   
-  //this->robot = robot;
-  //bfp = new BlobfinderProxy(robot, 0);
-  //p2d = new Position2dProxy(robot, 0);
-  
   destination = Position(0, 0, 0);
-
   cumulativeMove = Position(0, 0, 0);
+
   robotMutex.unlock();
 }
 
@@ -55,29 +49,20 @@ void InterfaceToLocalization::update() {
 
   string label = "\tInterfaceToLocalization::update()> ";
 
-  /*robotMutex.lock();
-  robot->Read();
-  robotMutex.unlock();
-  */
-  //	if (!p2d->IsFresh() && !bfp->IsFresh())
-  //		return;
-
   if (!isMoving()){
-    cout<< label << "updateObservations" << endl;
+    //cout<< label << "updateObservations" << endl;
     updateObservations();
   }
 
   Move lastMove = getLastMove();
-  cout << label << "last move(" << lastMove.getX() << "," 
-       << lastMove.getY() << "," << lastMove.getTheta() << ")" << endl;
-  displayObservationSummary();
+  if ( isMoving() )
+    cout << label << "last move(" << lastMove.getX() << "," 
+	 << lastMove.getY() << "," << lastMove.getTheta() << ")" << endl;
+  //displayObservationSummary();
   if (obs.size() > 0 || lastMove.getX() + lastMove.getTheta() != 0) {
-    cout<< label << "updateFilter" << endl;
+    if ( isMoving() ) 
+      cout<< label << "updateFilter" << endl;
     mc->updateFilter(lastMove, obs);
-    
-    /*if (lastMove.getX() != 0 || lastMove.getTheta() != 0) {
-      printf("updated filter with move: %f, %f, %f\n", lastMove.getX(), lastMove.getY(), lastMove.getTheta());      
-      }*/
   }
 }
 
@@ -91,7 +76,7 @@ void InterfaceToLocalization::move(Position relativePosition) {
 			 relativePosition.getTheta());
 
   p2d->ResetOdometry();
-  cout << label << "after reseting the odometry at time:" 
+  /*cout << label << "after reseting the odometry at time:" 
        << p2d->GetElapsedTime() << " p2d(" 
        << p2d->GetXPos() << "," 
        << p2d->GetYPos() << "," 
@@ -101,15 +86,15 @@ void InterfaceToLocalization::move(Position relativePosition) {
        << destination.getX() << "," 
        << destination.getY() << "," 
        << destination.getTheta() << ")" << endl;
-  
+  */
   p2d->GoTo(destination.getX(), destination.getY(), destination.getTheta());
-
+  /*
   cout << label << "time and position after GoTo:" 
        << p2d->GetElapsedTime() << " - (" 
        << p2d->GetXPos() << "," 
        << p2d->GetYPos() << "," 
        << p2d->GetYaw() << ")" << endl;
-
+  */
   cumulativeMove = Position(0, 0, 0);
   robotMutex.unlock();
 }
@@ -118,7 +103,8 @@ bool InterfaceToLocalization::isMoving() {
   robotMutex.lock();
   bool isMoving = !(destination == Position(0, 0, 0));
   robotMutex.unlock();
-  cout << "\tInterfaceToLocalization::isMoving(): " << isMoving << endl;
+  if (isMoving)
+    cout << "Moving..." << endl;
   
   return isMoving;
 }
@@ -130,42 +116,50 @@ Move InterfaceToLocalization::getLastMove() {
   robotMutex.lock();
 
   if (destination == Position(0, 0, 0)){
-    cout << label << "destination is not set. last move is (0,0,0)" << endl;
+    //cout << label << "destination is not set. last move is (0,0,0)" << endl;
     lastMove = Move(0, 0, 0);
   }
   else {
     if (p2d->IsFresh()) {
       
       p2d->NotFresh();
-     cout << label << "new destination. p2d: (" 
-	  << p2d->GetXPos() << "," 
-	  << p2d->GetYPos() << "," 
-	  << p2d->GetYaw() << ")" << endl;
-     cout << label << "new destination. cumulativeMove: (" 
-	  << cumulativeMove.getX() << "," 
-	  << cumulativeMove.getY() << "," 
-	  << cumulativeMove.getTheta() << ")" << endl;
+      /*cout << label << "new destination. p2d: (" 
+	   << p2d->GetXPos() << "," 
+	   << p2d->GetYPos() << "," 
+	   << p2d->GetYaw() << ")" << endl;
+      cout << label << "new destination. cumulativeMove: (" 
+	   << cumulativeMove.getX() << "," 
+	   << cumulativeMove.getY() << "," 
+	   << cumulativeMove.getTheta() << ")" << endl;
+      */
       double x = p2d->GetXPos() - cumulativeMove.getX();
       double y = p2d->GetYPos() - cumulativeMove.getY();
       double theta = p2d->GetYaw() - cumulativeMove.getTheta();
+      //lastMove = Move(x * 100 ,y * 100 ,theta);
+
       cumulativeMove.moveRelative(Move(x, y, theta));
-      cout << label << "new destination. add to cumulativeMove: (" 
+      /*cout << label << "new destination. add to cumulativeMove: (" 
 	   << x << "," 
 	   << y << "," 
-	   << theta << ")" << endl;
-  
+	   << theta << ")" << endl;      
+      */
     }
-
+    //else {  // position not fresh so we didn't move
+    //lastMove = Move(0,0,0);
+    //}
     lastMove = Move(destination.getX() * 100, destination.getY() * 100, destination.getTheta());
-
-    cout << label 
-	 << "destination reached(?). destination, cumulativeMove, odometry is (0,0,0)" << endl;
+  
+    // check if the destination is reached
+    //if ( positionEqual(destination, cumulativeMove, 0.4, 0.4, 0.3) ){
+      
+    //cout << label 
+    //	   << "destination reached(?). destination, cumulativeMove, odometry is (0,0,0)" << endl;
     destination = Position(0, 0, 0);
     cumulativeMove = Position(0, 0, 0);
-    
     p2d->ResetOdometry();
-  }
+      //}
 
+  }
   robotMutex.unlock();
 
   return lastMove;
@@ -569,12 +563,12 @@ double InterfaceToLocalization::radiansToDegrees(double rad) {
   return rad * 180 / M_PI;
 }
 
-bool InterfaceToLocalization::positionEqual(Position p1, Position p2) {
+bool InterfaceToLocalization::positionEqual(Position p1, Position p2, double xThres, double yThres, double thetaThres) {
   double absx = fabs(p1.getX() - p2.getX());
   double absy = fabs(p1.getY() - p2.getY());
   double abst = fabs(p1.getTheta() - p2.getTheta());
   
-  return (absx == 0 && absy == 0 && Utils::toRadians(abst) == 0);
+  return (absx < xThres && absy < yThres && Utils::toRadians(abst) < thetaThres);
 }
 
 void InterfaceToLocalization::printBlobs(vector<player_blobfinder_blob>& blobs){
@@ -766,6 +760,6 @@ void InterfaceToLocalization::displayObservationSummary(){
     //cout << endl;
   }
   else{
-    cout << label << "No observations are available at this time!." << endl;
+    //cout << label << "No observations are available at this time!." << endl;
   }
 }

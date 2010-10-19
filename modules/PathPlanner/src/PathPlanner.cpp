@@ -23,6 +23,7 @@ void PathPlanner::calcPath(){
 
     //astar newsearch(navGraph, s, t, 1);
     //path = newsearch.getPathToTarget();
+    path.clear();
     path.push_back(t.getID()); 
     //newsearch.printPath();
     //pathCost = newsearch.getCostToTarget();

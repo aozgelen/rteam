@@ -25,7 +25,7 @@ public:
   */
   void stop(){ itl->setSpeed(0,0,0); }
   void setOpMode(Mode m) { 
-    cout << "setting opMode: " << m << endl;
+    //cout << "setting opMode: " << m << endl;
     opMode = m; 
   }
 

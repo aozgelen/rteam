@@ -33,7 +33,7 @@ public:
   void drawEdges(Graph * g); 
   void drawSource(Graph * g, int x, int y); 
   void drawTarget(Graph * g, int x, int y);
-  void drawPath(InterfaceToLocalization*, PathPlanner*, Graph*, list<int>); 
+  void drawPath(InterfaceToLocalization*, PathPlanner*, Graph*); 
   void drawGoal(Graph * g, int goalX, int goalY);
 
   // for the fog. just testing for now. 

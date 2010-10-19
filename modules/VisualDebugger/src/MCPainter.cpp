@@ -235,8 +235,10 @@ void MCPainter::drawGoal(Graph * g, int x, int y){
   glEnd();
 }
 
-void MCPainter::drawPath(InterfaceToLocalization * itl, PathPlanner * planner, Graph * g, list<int> nodes) {
+void MCPainter::drawPath(InterfaceToLocalization * itl, PathPlanner * planner, Graph * g) {
+  list<int> nodes = planner->getPath();
   if ( !nodes.empty() ) {
+
     // draw a line between current position to first node in graph
     Position pos = itl->getPosition();
     glBegin(GL_LINES); 
