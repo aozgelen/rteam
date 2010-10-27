@@ -90,6 +90,7 @@ class Robot
   void do_state_action_moving();
   void do_state_action_pose();
   void do_state_action_player();
+  void do_state_action_found();
 };
 
 #endif

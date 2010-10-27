@@ -15,6 +15,7 @@ typedef unsigned char cmd_len_t;
 #define CMD_QUIT       "QUIT"        // <--> QUIT
 #define CMD_MOVE       "MOVE"        // <--- MOVE <id> <x-vel> <y-vel> <a-vel>
 #define CMD_MOVING     "MOVING"      // ---> MOVING
+#define CMD_FOUND      "BROADCAST"   // ---> BROADCAST FOUND <color>
 #define CMD_STATE      "STATE"       // <--- STATE <id> (currently replaced by ASKPOSE?)
 #define CMD_ASKPOSE    "ASKPOSE"     // <--- ASKPOSE <id>
 #define CMD_POSE       "POSE"        // ---> POSE <x-pos> <y-pos> <a-pos> <confidence>
@@ -43,6 +44,7 @@ typedef unsigned char cmd_len_t;
 #define STATE_POSE          12
 #define STATE_PLAYER        13
 #define STATE_GUI_WAIT      14
+#define STATE_FOUND         15
 
 
 // Unique Client Names

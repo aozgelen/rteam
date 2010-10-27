@@ -27,27 +27,7 @@ public:
 
   void update();
   void move(Position relativePosition);
-  Position getPosition() {
-    robotMutex.lock();
-    Position pos = mc->getPosition();
-    robotMutex.unlock();
-    return pos;
-  }
-  /*Position getPosition(){
-    return mc->getDebugger()->getPosition();
-    }*/
-  
-  // remove this once the problem with observation update during motion is fixed
-  /*void forceUpdateObservations() { 
-    printf("forcing observation updates\n");
-    updateObservations(); 
-  }
-  // desperate attempt to fix the bug explained before forceUpdateObservations
-  Position getOdometry(){ 
-    Move m = getLastMove();
-    printf("last move in getOdometry(%f,%f,%f) \n", m.getX(), m.getY(), m.getTheta());
-    return Position(m.getX()*100, m.getY()*100, m.getTheta());  
-    }*/
+  Position getPosition();
 
   double getConfidence() {
     robotMutex.lock();
@@ -82,6 +62,8 @@ public:
   void setSpeed(double, double, double);
 
   bool isMoving();
+  bool isDestinationSet();
+  bool isFound() { return foundItem; }
 
   void setBlobFinderProxy(PlayerClient*);
   void setPosition2dProxy(PlayerClient*);
@@ -100,14 +82,22 @@ protected:
   
   boost::mutex robotMutex;
 
+  // when a destination is set this is where the starting position is kept. 
+  // this is used to go around MCPositionEstimator which doesn't work well
+  // when particles are spread, which is the case when robot doesn't see 
+  // markers for some time (e.g. when in motion). 
+  Position startPos; 
+
   Position destination;
   Position cumulativeMove;
   Map * map;
   int fov;						//the field of vision in degrees
   vector<Observation> obs;
   double observationVariance;
+  
+  bool foundItem ;
 
-  bool positionEqual(Position p1, Position p2, double xt, double yt, double tt);
+  bool positionEqual(Position p1, Position p2);
 
   double radiansToDegrees(double rad);
   double getAngle(double x);
@@ -135,6 +125,8 @@ protected:
 
   vector<Observation> findEnteranceMarkersFromBlobs( vector<player_blobfinder_blob>& blobs, 
 						     string id);
+
+  vector<Observation> findGreenBlobs( vector<player_blobfinder_blob>& blobs, string id);
 };
 
 #endif /* INTERFACE_TO_LOCALIZATION_H_ */

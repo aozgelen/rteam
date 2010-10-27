@@ -16,6 +16,14 @@ Building:
 
 3) if any change is made within subdirectories contributing to any of the libraries, for that change to take effect they have to be rebuild within that subdirectory ( this will recompile the source and deploy the library to the project lib directory ). This means you have to make an extra effort to make the changes effective for the overall project. The reason for this is to avoid synchronization problems. I'm making no claims about this being the best approach but this is the case at the moment.    
 
+4) build the Skygrid
+   - cd into <PROJECT_PATH>/utils/Skygrid/src
+   - make
+
+5) build MetroboticsGUI
+   - cd into <PROJECT_PATH>/utils/MetroboticsGUI-v2
+   - make
+
 Running rteam code: 
 
 1) Run the player using a .cfg file from the <PROJECT_PATH>/modules/config_files directory. 
@@ -38,9 +46,7 @@ Running rteam code:
    If your code is autonomous, meaning doesn't require input from and operator, this is where you should stop. 
 
 4) Running the MetroboticsGUI (for operator control): 
-   - get the MetroboticsGUI from GitHub.
-     $> git clone git@github.com:aozgelen/MetroboticsGUI.git
-   - No .jar files at the moment, I suggest you to use Eclipse IDE to import the project and build it locally
-   - Run: 
+   - cd into <PROJECT_PATH>/utils/MetroboticsGUI_v2/
+   - java -jar metroboticsGUI.jar -s <central_server_host> <central_server_port> 
      To use it with the central server and the controlller, add these arguments: -s <server_ip> <server_port>  
      To use it to directly control the robot (via Player) use args: -p <player_ip> <player_port> nofile

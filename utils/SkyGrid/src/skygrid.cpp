@@ -329,6 +329,31 @@ bool send_or_push( char *msgbuf, robot *myrobot, long recipient_id ) {
 }
 
 
+int broadcast( char *msgbuf, robot *myrobot) {
+
+  char *tmpbuf = msgbuf;
+  
+  while(*tmpbuf != ' '){
+    ++tmpbuf;
+  }
+  
+  ++tmpbuf;
+  
+  pthread_mutex_lock( &robots_mutex );
+  
+  for (list<robot_p>::iterator i = robots.begin();
+       i != robots.end(); ++i) {
+    (*i)->push_msg(tmpbuf);
+    push_paint("PUSHED", tmpbuf, myrobot->get_session_id()); 
+	       
+  }
+  
+  pthread_mutex_unlock( &robots_mutex );
+  
+  return STATE_IDLE;
+}
+
+
 int init_client( char *msgbuf, robot *myrobot) {
   unsigned char len;
   string command;
@@ -1293,6 +1318,7 @@ int main( int argc, char *argv[] ) {
   function_array[STATE_GET_POSE] = &client_get_pose;
   function_array[STATE_ASK_PLAYER] = &client_ask_player;
   function_array[STATE_GET_PLAYER] = &client_get_player;
+  function_array[STATE_BROADCAST] = &broadcast;
   
   // NCURSES setup
   if(t_args->interactive){

@@ -10,7 +10,7 @@
 using namespace std; 
 
 Controller::Controller(PlayerClient * pc, Robot * r, Map * m, InterfaceToLocalization * rbt) 
-  : pCli(pc), robot(r), localMap(m), itl(rbt)
+  : pCli(pc), robot(r), localMap(m), itl(rbt), opMode(MANUAL)
 {
   // generate navigation graph
   navGraph = new Graph(localMap, true, 30);		
@@ -20,7 +20,7 @@ Controller::Controller(PlayerClient * pc, Robot * r, Map * m, InterfaceToLocaliz
   planner = new PathPlanner(*navGraph,n,n); 
   waypoint = n;
 
-  setOpMode(MANUAL);
+  //setOpMode(MANUAL);
 }
 
 void Controller::operator()() {
@@ -41,10 +41,10 @@ void Controller::operator()() {
 }
 
 void Controller::updateBehavior() {
-  bool moving = itl->isMoving();
-  bool obstacleInPath = false;
+  //bool moving = itl->isMoving();
+  //bool obstacleInPath = false;
 
-  if (!( moving && obstacleInPath )){
+  //if (!( moving && obstacleInPath )){
     //cout << "the robot doesn't need to avoid collision. updating behavior opMode:" << opMode << endl;
     switch( opMode ){
     case MANUAL:
@@ -60,15 +60,50 @@ void Controller::updateBehavior() {
       updateAutoBehavior();
       break;
     }
-  }
-  else {
-    stop();
+    //}
+    //else {
+    //stop();
     // avoid obstacles
-  }
+    //}
 }
 
 void Controller::updateManualBehavior(){ 
-  updateMixedInitBehavior() ; 
+  //updateMixedInitBehavior() ; 
+  if ( isTargetSet() ) {
+    Node target = planner->getTarget(); 
+    if ( !isGoalReached(target) ){
+      if ( !itl->isDestinationSet() ){
+	Position currPos = itl->getPosition();  // in cm
+	
+	cout << "currPos(" << currPos.getX() << ", " << currPos.getY() << ", " << currPos.getTheta() << ")" << endl;
+	
+
+	//itl->move(Position(0,0,-currPos.getTheta());
+
+	int tx = currPos.getX() - target.getX() ;
+	int ty = currPos.getY() - target.getY() ;
+	double theta = 360 - Utils::toDegrees(currPos.getTheta());
+	//double nx = tx * sin(theta) + ty * cos(theta); 
+	//double ny = tx * cos(theta) + ty * sin(theta); 
+	double nx = tx * cos(theta) + ty * sin(theta); 
+	double ny = -tx * sin(theta) + ty * cos(theta); 
+	cout << "tx: " << tx << ", ty: " << ty << ", theta: " << theta << ", nx: " << nx << ", ny: "<< ny << endl;
+	
+	Position dest( (int) nx, 
+		       (int) ny,
+		       0);
+
+	cout << "dest (" << dest.getX() << ", " << dest.getY() << ", " << dest.getTheta() << ")" << endl;
+	itl->move(dest); 
+	usleep(10000);
+      }
+    }
+    else{
+      cout << "target reached" << endl;
+      Node n; 
+      planner->setTarget(n);      
+    }
+  }
 }
 
 /* this is the main control behavior function */
@@ -128,12 +163,12 @@ void Controller::updateMixedInitBehavior() {
 	}
 	}*/
       
-      double xdiff = currPos.getX() - planner->getTarget().getX();
+      /* double xdiff = currPos.getX() - planner->getTarget().getX();
       double ydiff = currPos.getY() - planner->getTarget().getY();
-      
+      */
       //calculate relative position to destination
-      Position dest(currPos.getX() - wp.getX(), 
-		    currPos.getY() - wp.getY(),
+      Position dest(currPos.getX() - waypoint.getX(), 
+		    currPos.getY() - waypoint.getY(),
 		    0);
       // move to target      
       itl->move(dest); 
@@ -160,7 +195,7 @@ bool Controller::isPlanValid(){
   return (( d < 75 ) && !planner->pathEmpty()); 
 }
 
-// true if the position estimate is rather good (?) and the robot is in the same vicinity (ft 2) with the goal point
+// true if the position estimate is rather good (?) and the robot is at most 30cm away from the goal point
 // used both for waypoints and target point 
 bool Controller::isGoalReached(Node g){
   if ( g.getID() != Node::invalid_node_index ){

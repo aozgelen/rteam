@@ -115,6 +115,7 @@ void Robot::Update()
   // Update Player interfaces.
   mPlayerClient.ReadIfWaiting(); 
   itl->update();
+
   
   // Maintain the state machine.
   switch (mCurrentState) {
@@ -142,6 +143,9 @@ void Robot::Update()
   case STATE_MOVING: {
     do_state_action_moving();
   } break;
+  case STATE_FOUND: {
+    do_state_action_found(); 
+  }break;
   case STATE_POSE: {
     do_state_action_pose();
   } break;
@@ -484,6 +488,12 @@ void Robot::do_state_action_cmd_proc()
 {
   // Prepend function signature to error messages.
   static const string signature = "Robot::do_state_action_cmd_proc()";
+
+  // if object we're looking for is found broadcast it to everyone
+  if ( itl->isFound() ){
+    do_state_action_found();
+    return ;
+  }
   
   // Don't block while waiting for the command.
   if (!msg_waiting()) return;
@@ -601,7 +611,26 @@ void Robot::do_state_action_moving()
   
   // Send the command to Player.
   try {
-    mPosition2D->SetSpeed(xv, yv, av);
+    // a bad hack to turn robot in discrete intervals to prevent disorienting the user
+    // due to lag in communication. Also checks to see if the current speed is already set. 
+    // no need to send the same command twice
+    if ( av != 0 ){ 
+      // if yawSpeed not 0 turn for 22.5 degrees 
+      mPosition2D->ResetOdometry();
+      mPosition2D->GoTo(0, 0, av < 0 ? -M_PI / 8 : M_PI / 8); 
+    }
+    else {
+      // set xspeed
+      cout << "xSpeed: " << mPosition2D->GetXSpeed() << ", ySpeed: " << mPosition2D->GetYSpeed() 
+	   << ", xv: " << xv << ", yv: " << yv << endl;
+      if ( !(xv == mPosition2D->GetXSpeed() &&  mPosition2D->GetYSpeed() ))
+	mPosition2D->SetSpeed(xv, yv, 0);
+      else
+	cout << signature << " redundant " << command << " command. Ignoring message" << endl;
+    }
+     
+    // it is supposed to be this way
+    //mPosition2D->SetSpeed(xv, yv, av);
   } catch (PlayerError) {
     stringstream oss;
     oss << CMD_ERROR << " " << CMD_MOVE << " failed: Player error";
@@ -622,11 +651,28 @@ void Robot::do_state_action_moving()
   do_state_change(STATE_IDLE);
 }
 
+void Robot::do_state_action_found(){
+  // Prepend function signature to error messages.
+  static const string signature = "Robot::do_state_action_found()";
+  
+  if ( itl->isFound() ) {
+    stringstream oss; 
+    oss << CMD_FOUND << " FOUND green " << mSessionID ;
+    if (write(oss)) {
+      if (ROBOT_DEBUG) cerr << signature << " - success; next state: STATE_IDLE" << endl;
+    }
+    else{
+      if (ROBOT_DEBUG) cerr << signature << " - failure; next state: STATE_IDLE" << endl;
+    }
+  }
+  do_state_change(STATE_IDLE); 
+}
+
 void Robot::do_state_action_pose()
 {
   // Prepend function signature to error messages.
   static const string signature = "Robot::do_state_action_pose()";
-  
+
   // Make sure that we're providing Position2D.
   if (!mPosition2D) {
     stringstream oss;
@@ -641,9 +687,10 @@ void Robot::do_state_action_pose()
   // Not anymore it gets it directly from InterfaceToLocalization
   double xp = 0, yp = 0, ap = 0, confidence = 0;
   try {
-    //xp = mPosition2D->GetXPos();
-    //	yp = mPosition2D->GetYPos();
-    //	ap = mPosition2D->GetYaw();
+    /*xp = mPosition2D->GetXPos();
+    yp = mPosition2D->GetYPos();
+    ap = mPosition2D->GetYaw();
+    */
     Position p = itl->getPosition();  
     double conf = itl->getConfidence();
     xp = p.getX(); 

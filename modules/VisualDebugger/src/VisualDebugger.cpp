@@ -94,7 +94,7 @@ void VisualDebugger::mouse(int button, int state, int x, int y) {
   robot->setOpMode(MIXED_INIT);
   if (button == GLUT_LEFT_BUTTON) {
     if (state == GLUT_DOWN){
-      cout << "\tUSER MOUSE COMMAND: go (" << x << "," << y << ")" << endl;
+      cout << "\tUSER MOUSE COMMAND: go (" << getMapX(x) << "," << getMapY(y) << ")" << endl;
       Position p = itl->getPosition();
       
       Node s(1, p.getX(), p.getY()); 

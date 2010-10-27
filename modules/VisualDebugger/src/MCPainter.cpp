@@ -269,10 +269,11 @@ void MCPainter::drawPath(InterfaceToLocalization * itl, PathPlanner * planner, G
 }
 
 void MCPainter::drawParticles(MonteCarloDebugger * debugger) {
+  
   glBegin(GL_POINTS);
   {
     glVertex2f(0, 0);
-    glVertex2f(150, 150);
+    //glVertex2f(150, 150);
     for (int i = 0; i < debugger->particles.size(); i++) {
       double c = debugger->particles[i].probability;
       glColor3f(.5*(1-c), 1 *c, 0);
@@ -280,6 +281,23 @@ void MCPainter::drawParticles(MonteCarloDebugger * debugger) {
       glVertex2f(p.getX(), p.getY());
     }
   }
+  
+  // to plot the particles as lines to see the orientation
+  /*
+  glBegin(GL_LINES);
+  {
+    for (int i = 0; i < debugger->particles.size(); i++) {
+      double c = debugger->particles[i].probability;
+      glColor3f(.5*(1-c), 1 *c, 0);
+      Position p = debugger->particles[i].getPosition();
+      int len = 5; 
+      double xp = p.getX() + len * cos(p.getTheta()) ;
+      double yp = p.getY() + len * sin(p.getTheta()) ;
+      glVertex2f(p.getX(), p.getY()); 
+      glVertex2f(xp,yp);
+    } 
+  }
+  */
   glEnd();
 }
 
