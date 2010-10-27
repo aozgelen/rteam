@@ -16,9 +16,9 @@ using namespace::std;
 class PluginManager {
     public:
 	static PluginManager *Instance();
-	int load(string filename);
-	int unload(string filename);
-	int reload(string filename);
+	string load(string filename);
+	string unload(string filename);
+	string reload(string filename);
 	int incoming(string data);
 	int outgoing(string data);
 	bool hooked(string type);

@@ -9,16 +9,15 @@ using std::string;
 using std::vector;
 using std::map;
 
-struct robot_rules {
-  vector<string> arguments;
-  int delay_seconds;
-  bool random;
-};
-
 class Warden {
     public:
 	static Warden *Instance();
 	string eval(string msg);
+	string load(string file);
+	string unload(string file);
+	string reload(string file);
+	string help(string file);
+	void quit();
 	~Warden();
     private:
 	Warden(){};
@@ -26,12 +25,10 @@ class Warden {
 	Warden& operator=(const Warden &);
 
 	string format_message(string str);
-	void tokenize_message(string str);
+	string parse_message(string str);
 	void insert_rule(){};
-	void enforce(map< string, vector<string> >);
 
 	string message;
-	map< string, robot_rules > robots;
 };
 
 #endif

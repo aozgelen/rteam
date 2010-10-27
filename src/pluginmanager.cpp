@@ -21,7 +21,7 @@ void PluginManager::report_errors(lua_State *L, int status)
     }
 }
 
-int PluginManager::load(string filename){
+string PluginManager::load(string filename){
   lua_State *pL = lua_open();                                                   
   luaL_openlibs(pL);
   string keyword, value;
@@ -30,8 +30,8 @@ int PluginManager::load(string filename){
 //  cout << "In loader: " << filename << endl;
 
   if( s != 0){
-    report_errors(pL, s);
-    return(1);
+    //report_errors(pL, s);
+    return("Failed to load:" + filename);
   }
 
     lua_settop(pL, 0);
@@ -39,8 +39,7 @@ int PluginManager::load(string filename){
     lua_getglobal(pL, "usage");
 
     if(!lua_istable(pL, -1)){
-      //cout << "Error: Plugin has not defined usage" << endl;
-      return(1);
+      return("Error: Plugin " + filename + " has not defined usage");
     }
 
     if(!plugins[filename]){
@@ -74,8 +73,7 @@ int PluginManager::load(string filename){
     lua_getglobal(pL, "hooks");
 
     if(!lua_istable(pL, -1)){
-      cout << "Error: Plugin has not defined hooks" << endl;
-      return(1);
+      return("Error: Plugin has not defined hooks");
     }
 
     lua_pushnil(pL);
@@ -108,17 +106,20 @@ int PluginManager::load(string filename){
     lua_pop(pL, 1);
 
 
-  return 0;
+  return("Plugin " + filename + " was loaded successfully.");
 
 }
-int PluginManager::reload(string filename){
+
+
+string PluginManager::reload(string filename){
   unload(filename);
   load(filename);
 
-  return 0;
+  // check if either failed
+  return(filename + " was reloaded.");
 }
 
-int PluginManager::unload(string filename){
+string PluginManager::unload(string filename){
 
   // remember to detatch hooks
 
@@ -138,10 +139,10 @@ int PluginManager::unload(string filename){
     lua_close(plugins[ filename ]);
     plugins.erase(filename);
   }else{
-    return 1;
+    //return("Failed to unload: " + filename);
   }
 
-  return 0;
+  return(filename + " was unloaded.");
 }
 
 string PluginManager::execute(string cmd){

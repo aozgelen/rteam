@@ -16,15 +16,8 @@ Warden *Warden::Instance(){
 
 string Warden::eval(string msg){
   string formatted = format_message(msg);
-  string response;
-  PluginManager->load("./stopwatch.lua");
-  response = PluginManager->execute(formatted);
-  
-  tokenize_message(formatted);
-  //cout << formatted << endl;
-  
-  return response;
 
+  return(parse_message(formatted));
 }
 
 string Warden::format_message(string msg){
@@ -54,108 +47,62 @@ string Warden::format_message(string msg){
 
 }
 
-void Warden::tokenize_message(string message){
+string Warden::parse_message(string message){
 
-  string keyword;
-  string argument;
-  vector<string> parameters;
-  map< string, vector<string> > robot_rule;
-  size_t found;
+  size_t cmd_div = message.find(" ");
+  string keyword =  message.substr(0, cmd_div);
+  string arguments = message.substr(cmd_div + 1);
 
-  char *argptr;
-  char *msgptr = new char[message.size() + 1];
-  char *p;
+  if(keyword == "LOAD"){
 
-  strcpy(msgptr, message.c_str());
+    //cout << "LOAD was recieved" << endl;
+    return(PluginManager->load(arguments));
 
-  p = strtok (msgptr," ");
+  }else if(keyword == "UNLOAD") {
 
-  while (p != NULL){
-    cout << "KEYWORD: " << p << endl;
-    keyword.append(p);
+    //cout << "UNLOAD was recieved" << endl;
+    return(PluginManager->unload(arguments));
 
-    cout << "Processing Arguments..." << endl;
+  }else if(keyword == "RELOAD") {
 
-    p = strtok(NULL," ");
+    //cout << "RELOAD was recieved" << endl;
+    return("RELOAD successful");
 
-    if( p != NULL){
-      if(strstr(p, ",")){
-	  cout << "ARGUEMENTS: " << p << endl;
+  }else if(keyword == "HELP") {
 
-	  argptr = p;
+    //cout << "HELP was recieved" << endl;
+    return("HERRO HELP");
 
-	  while( *argptr != ' ' && *argptr != '\0'){
+  }else if(keyword == "QUIT") {
 
-	    if(*argptr == ','){
-	      cout << "\tPUSHED Argument: " << argument << endl;
-	      parameters.push_back(argument);
-	      argument.erase();
-	    }else{
-	      argument.push_back(*argptr);
-	    }
+    //cout << "QUIT was recieved" << endl;
+    return("QUITTER!");
 
-	    ++argptr;
-	    if(*argptr == '\0'){
-	      cout << "\tPUSHED Argument: " << argument << endl;
-	      parameters.push_back(argument);
-	    }
-	  }
-	      
-
-      }else{
-	cout << "ARGUMENT: " << p << endl;
-	argument.erase();
-	argument.append(p);
-        cout << "\tPUSHED Argument: " << argument << endl;
-        parameters.push_back(argument);
-      }
-    }
-
-    // Stuff DataStructure and goto next block of tokens
-    robot_rule[keyword] = parameters;
-
-    keyword.erase();
-    parameters.clear();
-	
-    p = strtok(NULL," ");
   }
 
-  delete[] msgptr;
-
-  cout << endl << endl;
-
-  //enforce(robot_rule);
+  return(PluginManager->execute(message));
 
 }
 
-void Warden::enforce(map< string, vector<string> > robot_rule){
+string Warden::load(string filename){
+  return PluginManager->load(filename);
+}
 
-  map< string ,vector<string> >::iterator map_it;
-  vector<string>::iterator vector_it;
-  map<string ,robot_rules>::iterator robo_it;
+string Warden::unload(string filename){
+  return PluginManager->unload(filename);
+}
 
-  robot_rules rule;
+string Warden::reload(string filename){
+  return PluginManager->reload(filename);
+}
 
-  vector<string> id;
+string Warden::help(string filename){
+  return("HELP!!");
+ // return PluginManager->reload(filename);
+}
 
-  for( map_it = robot_rule.begin(); map_it != robot_rule.end(); ++map_it){
-
-    if(map_it->first.compare("FROM") == 0){
-      continue;
-    }
-
-    cout << map_it->first << endl;
-
-    for(vector_it = (map_it)->second.begin(); vector_it != (map_it)->second.end(); ++vector_it){
-
-      //rule.
-
-        robots[map_it->first] =  rule;
-	// robots[111111111] = rule;
-
-	cout << "\t -" << *vector_it << endl;
-    }
-  }
+void Warden::quit(){
+  exit(0);
 }
 
 Warden::~Warden(){
