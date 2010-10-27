@@ -29,6 +29,8 @@ typedef unsigned char cmd_len_t;
 #define CMD_GET_POSE "POSE" //
 #define CMD_ASK_PLAYER "ASKPLAYER" //
 #define CMD_GET_PLAYER "PLAYER" //
+#define CMD_BROADCAST "BROADCAST" // BROADCAST <message>
+#define CMD_FOUND "FOUND" // FOUND <color>
 
 
 // Client/Server States
@@ -57,6 +59,8 @@ typedef unsigned char cmd_len_t;
 
 #define STATE_ASK_PLAYER	19
 #define STATE_GET_PLAYER	20
+#define STATE_BROADCAST		21
+#define STATE_FOUND		22
 
 
 // Unique Client Names

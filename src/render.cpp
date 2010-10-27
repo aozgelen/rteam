@@ -1,4 +1,7 @@
 #include "render.h"
+#include "warden.h"
+
+#define Warden	Warden::Instance()
 
 WINDOW *title_bar;
 WINDOW *output;
@@ -282,6 +285,7 @@ void *paintbrush( void *arg ) {
   const int console_input_size = 40;
   char input_buffer[input_size];
   char console_buffer[console_input_size];
+  string warden_buffer;
 
   int x, y;
   int height, width;
@@ -367,6 +371,7 @@ void *paintbrush( void *arg ) {
         if(ch == ESCAPE_KEY || ch == '~'){ // Escape Key or tilde
           console_visible = false;
           touchwin(output);
+	  curs_set(0);
           refresh();
         }else if(ch == BACKSPACE_KEY){ // Backspace Key
           if(x_coord > 0){
@@ -388,7 +393,8 @@ void *paintbrush( void *arg ) {
           console_buffer[x_coord] = '\0';
 	  ++y_coord;
 	  x_coord = 0;
-	  wprintw(console, "\nRecieved: %s", console_buffer);
+	  warden_buffer = Warden->eval(console_buffer);
+	  wprintw(console, "\nRecieved: %s", warden_buffer.c_str());
 	  wprintw(console, "\n> ");
 
 	  // Pass console buffer to warden
@@ -439,6 +445,7 @@ void *paintbrush( void *arg ) {
 	    touchwin(output);
             x_coord = 0;
             y_coord = 0;
+	    curs_set(2);
 	    refresh();
 
           }else if(ch == 'q' || ch == 'Q'){
@@ -504,7 +511,7 @@ void interactive_setup(){
       title_bar = newwin(1, x, 0, 0); 
       output = newwin(y - 1, x, 2, 0); 
       status_bar = newwin(1, x, y - 1, 0); 
-      console = newwin(y / 4, x, y - (y/3) + 1, 0); 
+      console = newwin((y / 4) + 1, x, y - ( y /4) - 2, 0); 
       filter_menu =
 	  newwin(3, x - x / 4 , (y - 3) / 2, ( x - (x - x / 4)) / 2 );
 
@@ -532,7 +539,7 @@ void interactive_setup(){
       wbkgd(filter_menu, COLOR_PAIR(11) | A_BOLD | A_DIM );
       wbkgd(console, COLOR_PAIR(11) | A_BOLD | A_DIM );
 
-      mvwprintw(title_bar, 2, center,  "%s", MAIN_TITLE);
+      mvwprintw(title_bar, 0, center,  "%s", MAIN_TITLE);
 
       wprintw(status_bar, "[ 00:00:00 ]");
       wprintw(status_bar, "%50s %d", "Clients Connected:", 0);

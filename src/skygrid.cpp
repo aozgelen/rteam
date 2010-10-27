@@ -34,9 +34,11 @@ using namespace std;
 #include "pose.h"
 #include "robot.h"
 #include "render.h"
+#include "pluginmanager.h"
 
 #define MAX_THREADS 100
 #define MAX_BUFFER  1024
+#define PluginManager PluginManager::Instance()
 
 typedef int (*function_ptr)(char *, robot *);
 
@@ -53,7 +55,7 @@ int num_threads = 0;
 // Parameters:
 // name - name of running process
 void display_usage(char *name){
-  cerr << name << " [-i] [-l logfile] [-b ip address] [-p port]" << endl;
+  cerr << name << " [-t] [-l logfile] [-b ip address] [-p port]" << endl;
   exit(1);
 }
 
@@ -195,7 +197,7 @@ int client_idle( char *msgbuf, robot *myrobot) {
         FD_ZERO(&rset);
         FD_SET(sockfd, &rset);
         timeout.tv_sec = 0;
-        timeout.tv_usec = 0;
+        timeout.tv_usec = 100;
 
 	if( (ret = select(sockfd + 1, &rset, NULL, NULL, &timeout)) == -1){
 	  perror("select: ");
@@ -208,7 +210,6 @@ int client_idle( char *msgbuf, robot *myrobot) {
 	}
       }
 
-    usleep(1); // give up some cpu time
   }
 
   //cout << "ERROR!" << endl;
@@ -226,6 +227,11 @@ int proc_cmd( char *msgbuf, robot *myrobot) {
 
   if(que_msg != ""){
     //cout << "Got from Que" << endl;
+
+    if(PluginManager->hooked("INCOMING")){
+
+    }
+
     push_paint("POPPED", que_msg.c_str(), myrobot->get_session_id(), myrobot->get_name());
     strcpy( msgbuf, que_msg.c_str() );
   }
@@ -236,6 +242,10 @@ int proc_cmd( char *msgbuf, robot *myrobot) {
     return STATE_QUIT;
   }
   else{
+    if(PluginManager->hooked("INCOMING")){
+
+    }
+
     push_paint("RECIEVED", ptr, myrobot->get_session_id(), myrobot->get_name());
     strcpy( msgbuf,ptr );
   }
@@ -284,6 +294,12 @@ int proc_cmd( char *msgbuf, robot *myrobot) {
   }else if(command == CMD_GET_PLAYER){
     return STATE_GET_PLAYER;
 
+  }else if(command == CMD_BROADCAST){
+    return STATE_BROADCAST;
+
+  }else if(command == CMD_FOUND){
+    return STATE_FOUND;
+
   }else{
     return STATE_IDLE;
   }
@@ -318,6 +334,46 @@ int client_pong( char *msgbuf, robot *myrobot) {
     return STATE_QUIT;
   }else{
 	push_paint("SENT", msgbuf, myrobot->get_session_id(), myrobot->get_name());
+  }
+
+  return STATE_IDLE;
+
+}
+
+int client_broadcast( char *msgbuf, robot *myrobot) {
+
+  char *tmpbuf = msgbuf;
+
+  while(*tmpbuf != ' '){
+    ++tmpbuf;
+  }
+
+  ++tmpbuf;
+
+  pthread_mutex_lock( &robots_mutex );
+
+  for (list<robot_p>::iterator i = robots.begin();
+	  i != robots.end(); ++i) { 
+	  (*i)->push_msg(tmpbuf);
+	push_paint("PUSHED", tmpbuf, myrobot->get_session_id(), myrobot->get_name());
+  
+  }
+
+  pthread_mutex_unlock( &robots_mutex );
+
+  return STATE_IDLE;
+}
+
+int client_found( char *msgbuf, robot *myrobot) {
+  unsigned char len = strlen(msgbuf);
+
+  if(comm->send_msg( myrobot->get_sock(), len, msgbuf) == -1){
+    push_paint("ERROR", "failed to send message",
+	    myrobot->get_session_id(), myrobot->get_name());
+      //cerr << "**error> failed to send message" << endl;
+      return STATE_QUIT;
+  }else{
+    push_paint("SENT", msgbuf, myrobot->get_session_id(), myrobot->get_name());
   }
 
   return STATE_IDLE;
@@ -770,6 +826,12 @@ void *client_handler( void *arg ) {
 	case STATE_MOVE:
 	    command = STATE_MOVE;
 	    break;
+	case STATE_BROADCAST:
+	    command = STATE_BROADCAST;
+	    break;
+	case STATE_FOUND:
+	    command = STATE_FOUND;
+	    break;
 	default:
 	    //cout << "State was: " << state << endl;
 	    push_paint("ERROR", "Invalid State", myrobot->get_session_id(), myrobot->get_name());
@@ -825,14 +887,15 @@ int main( int argc, char *argv[] ) {
   bool ip_given = false;
   bool port_given = false;
   t_args->log_enabled = false;
+  t_args->interactive = true;
 
   if(argc < 2)
     display_usage(argv[0]);
 
-  while ((ch = getopt (argc, argv, "il:b:p:")) != -1){
+  while ((ch = getopt (argc, argv, "tl:b:p:")) != -1){
     switch(ch){
-	case 'i':
-		t_args->interactive = true;
+	case 't':
+		t_args->interactive = false;
 		break;
 	    case 'l':
 		strncpy(t_args->logfile, optarg, sizeof(t_args->logfile));
@@ -879,6 +942,8 @@ int main( int argc, char *argv[] ) {
   function_array[STATE_GET_POSE] = &client_get_pose;
   function_array[STATE_ASK_PLAYER] = &client_ask_player;
   function_array[STATE_GET_PLAYER] = &client_get_player;
+  function_array[STATE_BROADCAST] = &client_broadcast;
+  function_array[STATE_FOUND] = &client_found;
   
   // NCURSES setup
   if(t_args->interactive){
