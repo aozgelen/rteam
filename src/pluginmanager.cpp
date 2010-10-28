@@ -127,7 +127,7 @@ string PluginManager::unload(string filename){
   bool found = false;
 
   for( it = commands.begin(); it != commands.end(); ++it){
-    if(it->second == "filename"){
+    if(it->second == filename){
       commands.erase(it);
 
       if(!found)
@@ -139,7 +139,7 @@ string PluginManager::unload(string filename){
     lua_close(plugins[ filename ]);
     plugins.erase(filename);
   }else{
-    //return("Failed to unload: " + filename);
+    return("No such file loaded");
   }
 
   return(filename + " was unloaded.");

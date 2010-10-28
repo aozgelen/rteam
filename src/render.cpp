@@ -445,7 +445,7 @@ void *paintbrush( void *arg ) {
 	    touchwin(output);
             x_coord = 0;
             y_coord = 0;
-	    curs_set(2);
+	    //curs_set(2);
 	    refresh();
 
           }else if(ch == 'q' || ch == 'Q'){

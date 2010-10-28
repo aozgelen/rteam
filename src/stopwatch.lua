@@ -7,7 +7,6 @@ hooks = {};
 hooks["INCOMING"] = false;
 hooks["OUTGOING"] = false;
 
-clocks = {};
 
 function process( cmd )
 	command = string.match(cmd, "(%w+)");
@@ -27,6 +26,8 @@ function process( cmd )
 end
 
 ----------------------------------------------------------
+
+clocks = {};
 
 
 function timer ( args )

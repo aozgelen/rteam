@@ -711,7 +711,8 @@ void *posebeat( void *arg ) {
 
     for (list<robot_p>::iterator i = robots.begin();
          i != robots.end(); ++i) {
-      if((*i)->get_type_id() != "gui" && (*i)->get_type() != ""){
+//      if((*i)->get_type_id() != "gui" && (*i)->get_type() != ""){
+      if((*i)->get_type_id() != "gui"){
 	  session_id = (*i)->get_session_id();
 	  oss << session_id;
 	  p += command;
