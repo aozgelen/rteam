@@ -26,6 +26,9 @@ Robot::Robot(PlayerClient& pc, InterfaceToLocalization * i, string id, string ty
   
   // Initialize default state.
   init_state();
+
+  //hacky whacky
+  foundSent = false;
 }
 
 Robot::~Robot()
@@ -491,6 +494,7 @@ void Robot::do_state_action_cmd_proc()
 
   // if object we're looking for is found broadcast it to everyone
   if ( itl->isFound() ){
+    //do_state_change(STATE_FOUND);
     do_state_action_found();
     return ;
   }
@@ -531,7 +535,8 @@ void Robot::do_state_action_cmd_proc()
 	    do_state_change(STATE_IDLE);
 	  }
 	else
-	  if (cmd.find(CMD_MOVE) != string::npos)
+	  //if (cmd.find(CMD_MOVE) != string::npos)
+	  if (cmd.find(CMD_MOVE) != string::npos || cmd.find(CMD_GOTO) != string::npos)
 	    {
 	      // Save the command; it will be processed in the next state.
 	      mStringBuffer = ss.str();
@@ -595,51 +600,84 @@ void Robot::do_state_action_moving()
   }
   
   // Make sure that we have the correct arguments.
-  string command;
+  string command, FAILURE;
   long id = -1;
   double xv = 0, yv = 0, av = 0;
+  int xpos, ypos;
   stringstream iss(mStringBuffer);
-  if (!(iss >> command >> id >> xv >> yv >> av) ||
-      (command.find(CMD_MOVE) == string::npos) || (mSessionID != id)) {
+  bool argFail = false;
+  if (!(iss >> command >> id >> xv >> yv >> av) || (command.find(CMD_MOVE) == string::npos) || (mSessionID != id)) {
+    /*if ( !(iss >> command >> id ) ){
+    argFail = true;
+    FAILURE = "command, id read failed" ; 
+  }
+  // if the command is a MOVE command but the following arguments are not xSpeed, ySpeed and yawSpeed
+  if (( command.find(CMD_MOVE) ) && !( iss >> xv >> yv >> av ) ){
+    argFail = true;
+    FAILURE = strcat(const_cast<char*>(CMD_MOVE), "failed: invalid arguments");
+  }
+  // if the command is a GOTO command but the following arguments are not xPos and yPos
+  if (( command.find(CMD_GOTO) ) && !( iss >> xpos >> ypos ) ){
+    argFail = true;
+    FAILURE = strcat(const_cast<char*>(CMD_GOTO), "failed: invalid arguments");
+  }
+  // if the command is not neither GOTO nor MOVE 
+  if (!( command.find(CMD_MOVE ) == string::npos || command.find(CMD_GOTO) == string::npos ) ){
+    argFail = true;
+    FAILURE = "Command not recognized";
+  }
+  //the sessionID belongs to another robot
+  if (mSessionID != id){
+    argFail = true;
+    FAILURE = "Session Id mismatch." ;
+  }
+  if( argFail){*/
     stringstream oss;
-    oss << CMD_ERROR << " " << CMD_MOVE << " failed: invalid arguments";
+    oss << CMD_ERROR << " " << FAILURE;
     write(oss);
     if (ROBOT_DEBUG) cerr << signature << " - failure; next state: STATE_IDLE" << endl;
     do_state_change(STATE_IDLE);
     return;
   }
-  
-  // Send the command to Player.
-  try {
-    // a bad hack to turn robot in discrete intervals to prevent disorienting the user
-    // due to lag in communication. Also checks to see if the current speed is already set. 
-    // no need to send the same command twice
-    if ( av != 0 ){ 
-      // if yawSpeed not 0 turn for 22.5 degrees 
-      mPosition2D->ResetOdometry();
-      mPosition2D->GoTo(0, 0, av < 0 ? -M_PI / 8 : M_PI / 8); 
+  //else {
+    // Send the command to Player.
+    try {
+      //if ( command.find(CMD_MOVE) ) {
+	// a bad hack to turn robot in discrete intervals to prevent disorienting the user
+	// due to lag in communication. Also checks to see if the current speed is already set. 
+	// no need to send the same command twice
+	if ( av != 0 ){ 
+	  // if yawSpeed not 0 turn for 22.5 degrees 
+	  mPosition2D->ResetOdometry();
+	  mPosition2D->GoTo(0, 0, av < 0 ? -M_PI / 8 : M_PI / 8); 
+	}
+	else {
+	  // set xspeed
+	  cout << "xSpeed: " << mPosition2D->GetXSpeed() << ", ySpeed: " << mPosition2D->GetYSpeed() 
+	       << ", xv: " << xv << ", yv: " << yv << endl;
+	  if ( !(xv == mPosition2D->GetXSpeed() &&  mPosition2D->GetYSpeed() ))
+	    mPosition2D->SetSpeed(xv, yv, 0);
+	  else
+	    cout << signature << " redundant " << command << " command. Ignoring message" << endl;
+	}
+	
+	// it is supposed to be this way
+	//mPosition2D->SetSpeed(xv, yv, av);
+	//}
+      //else {     // it is a GOTO command call itl->move to handle it. also get the path from the planner
+	
+      //}
+    } catch (PlayerError) {
+      stringstream oss;
+      //oss << CMD_ERROR << " " << command << " failed: Player error";
+      oss << CMD_ERROR << " " << CMD_MOVE << " failed: Player error";
+      write(oss);
+      if (ROBOT_DEBUG) cerr << signature << " - failure; next state: STATE_IDLE" << endl;
+      do_state_change(STATE_IDLE);
+      return;
     }
-    else {
-      // set xspeed
-      cout << "xSpeed: " << mPosition2D->GetXSpeed() << ", ySpeed: " << mPosition2D->GetYSpeed() 
-	   << ", xv: " << xv << ", yv: " << yv << endl;
-      if ( !(xv == mPosition2D->GetXSpeed() &&  mPosition2D->GetYSpeed() ))
-	mPosition2D->SetSpeed(xv, yv, 0);
-      else
-	cout << signature << " redundant " << command << " command. Ignoring message" << endl;
-    }
-     
-    // it is supposed to be this way
-    //mPosition2D->SetSpeed(xv, yv, av);
-  } catch (PlayerError) {
-    stringstream oss;
-    oss << CMD_ERROR << " " << CMD_MOVE << " failed: Player error";
-    write(oss);
-    if (ROBOT_DEBUG) cerr << signature << " - failure; next state: STATE_IDLE" << endl;
-    do_state_change(STATE_IDLE);
-    return;
-  }
-  
+    //}
+
   // Report success.
   stringstream oss;
   oss << CMD_MOVING;
@@ -655,7 +693,8 @@ void Robot::do_state_action_found(){
   // Prepend function signature to error messages.
   static const string signature = "Robot::do_state_action_found()";
   
-  if ( itl->isFound() ) {
+  if ( itl->isFound() && !foundSent ) {
+    foundSent = true; 
     stringstream oss; 
     oss << CMD_FOUND << " FOUND green " << mSessionID ;
     if (write(oss)) {

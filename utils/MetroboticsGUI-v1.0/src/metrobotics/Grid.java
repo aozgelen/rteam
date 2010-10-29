@@ -48,6 +48,7 @@ public class Grid extends JPanel implements Scrollable, MouseListener, MouseMoti
 	Point clicked;
 	long time1, time2;
 	MainFrame mf;
+	volatile boolean movingFW, movingBK, movingLT, movingRT; // I had to do this because in Linux the KeyListener are a pain in the neck.
 	
 	// From map.conf
 	private Dimension sizeMap;
@@ -60,7 +61,7 @@ public class Grid extends JPanel implements Scrollable, MouseListener, MouseMoti
 	private VisionDisplay vision;
 	private boolean showVideoInUse;
 	private Color videoColor;
-	private boolean showLockInUse;
+	public boolean showLockInUse;
 	private Color lockColor;
 	
 	// Grid(final JLabel robotInUse, final ArrayList<Robot> robots, int width, int height, VisionDisplay vision){
@@ -88,8 +89,22 @@ public class Grid extends JPanel implements Scrollable, MouseListener, MouseMoti
 	    setPreferredSize(d);
 	    setBorder(BorderFactory.createRaisedBevelBorder());
 	    setFocusable(true);
-	    addKeyListener(new KeyListener() {
-			boolean moving = false;
+	    addMouseListener(new MouseListener(){
+			public void mouseClicked(MouseEvent e) {
+				requestFocusInWindow();	
+				System.out.println("Focus on component");
+			}
+			public void mouseEntered(MouseEvent e) {
+			}
+			public void mouseExited(MouseEvent e) {
+			}
+			public void mousePressed(MouseEvent e) {
+			}
+			public void mouseReleased(MouseEvent e) {
+			}
+		});
+		addKeyListener(new KeyListener() {
+			// boolean moving = false;
 			public void keyTyped(KeyEvent e){
 				System.out.println("Key Typed: " + e.getKeyChar());
 			}
@@ -101,59 +116,144 @@ public class Grid extends JPanel implements Scrollable, MouseListener, MouseMoti
 
 			public void keyReleased(KeyEvent e) {
 				System.out.println("Key Released: " + e.getKeyChar());
-				mf.playerJoy.sendMove(mf.playerJoy.STOP);
-				moving = false;
+				//moving = false;
+				//mf.playerJoy.sendMove(mf.playerJoy.STOP);
 			}
 
-			public void handleControl(KeyEvent e){
-				System.out.println("In HandleControl");
-				int keycode = e.getKeyCode();
-				if ( keycode == KeyEvent.VK_W || keycode == KeyEvent.VK_UP){
-					if(moving == false){
-						System.out.println("UP");
-						mf.playerJoy.sendMove(mf.playerJoy.FORWARD);
-					}
-					moving = true;
-				}
-				else if ( keycode == KeyEvent.VK_A || keycode == KeyEvent.VK_LEFT ){
-					if(moving == false){
-						System.out.println("LEFT");
-						mf.playerJoy.sendMove(mf.playerJoy.LEFT);
-					}
-					moving = true;
-				}
-				else if ( keycode == KeyEvent.VK_D || keycode == KeyEvent.VK_RIGHT ){
-					if(moving == false){
-						mf.playerJoy.sendMove(mf.playerJoy.RIGHT);
-						System.out.println("RIGHT");
-					}
-					moving = true;
-				}
-				else if ( keycode == KeyEvent.VK_W || keycode == KeyEvent.VK_DOWN ){
-					if(moving == false){
-						mf.playerJoy.sendMove(mf.playerJoy.BACK);
-						System.out.println("DOWN");
-					}
-					moving = true;
-				}
-				else if ( keycode == KeyEvent.VK_ESCAPE){
-					// Unlock all robots
-					showLockInUse = false;
-					drawClick = false;
-					Robot.setRobotInUse(-1);
-					for(Robot z : robots){
-						Gui.serverComm.writeStream("UNLOCK " + z.getUniqueId());
-					}
-				}
-			}
+			
 		});
+	}
+	public synchronized void handleControl(KeyEvent e){
+		System.out.println("In HandleControl");
+		int keycode = e.getKeyCode();
+		if ( keycode == KeyEvent.VK_W || keycode == KeyEvent.VK_UP){
+			if(movingFW == false){
+				System.out.println("UP");
+				mf.playerJoy.sendMove(mf.playerJoy.FORWARD);
+			}
+			movingFW = true;
+			movingBK = false;
+			movingLT = false;
+			movingRT = false;
+		}
+		
+		else if ( keycode == KeyEvent.VK_A || keycode == KeyEvent.VK_LEFT ){
+		    //if(movingLT == false){
+				System.out.println("LEFT");
+				mf.playerJoy.sendMove(mf.playerJoy.LEFT);
+				//}
+			movingLT = true;
+			movingFW = false;
+			movingBK = false;
+			movingRT = false;
+		}
+		else if ( keycode == KeyEvent.VK_SPACE){
+			//if(moving == true){
+				mf.playerJoy.sendMove(mf.playerJoy.STOP);
+			//}
+			movingFW = false;
+			movingBK = false;
+			movingLT = false;
+			movingRT = false;
+			
+		}
+		else if ( keycode == KeyEvent.VK_D || keycode == KeyEvent.VK_RIGHT ){
+		    //if(movingRT == false){
+				mf.playerJoy.sendMove(mf.playerJoy.RIGHT);
+				System.out.println("RIGHT");
+				//}
+			movingRT = true;
+			movingLT = false;
+			movingBK = false;
+			movingFW = false;
+		}
+		else if ( keycode == KeyEvent.VK_W || keycode == KeyEvent.VK_DOWN ){
+			if(movingBK == false){
+				mf.playerJoy.sendMove(mf.playerJoy.BACK);
+				System.out.println("DOWN");
+			}
+			movingBK = true;
+			movingFW = false;
+			movingRT = false;
+			movingLT = false;
+		}
+		else if ( keycode == KeyEvent.VK_ESCAPE){
+			// Unlock all robots
+			mf.grid.showLockInUse = false;
+			mf.grid.drawClick = false;
+			Robot.setRobotInUse(-1);
+			for(Robot z : robots){
+				Gui.serverComm.writeStream("UNLOCK " + z.getUniqueId());
+			}
+		}
+	}
+
+//	    addKeyListener(new KeyListener() {
+//			boolean moving = false;
+//			public void keyTyped(KeyEvent e){
+//				System.out.println("Key Typed: " + e.getKeyChar());
+//			}
+//			
+//			public void keyPressed(KeyEvent e) {	
+//				System.out.println("Key Pressed: " + (int)e.getKeyChar() + " " + e.getKeyCode());
+//				handleControl(e);
+//			}
+//
+//			public void keyReleased(KeyEvent e) {
+//				System.out.println("Key Released: " + e.getKeyChar());
+//				mf.playerJoy.sendMove(mf.playerJoy.STOP);
+//				moving = false;
+//			}
+//
+//			public void handleControl(KeyEvent e){
+//				System.out.println("In HandleControl");
+//				int keycode = e.getKeyCode();
+//				if ( keycode == KeyEvent.VK_W || keycode == KeyEvent.VK_UP){
+//					if(moving == false){
+//						System.out.println("UP");
+//						mf.playerJoy.sendMove(mf.playerJoy.FORWARD);
+//					}
+//					moving = true;
+//				}
+//				else if ( keycode == KeyEvent.VK_A || keycode == KeyEvent.VK_LEFT ){
+//					if(moving == false){
+//						System.out.println("LEFT");
+//						mf.playerJoy.sendMove(mf.playerJoy.LEFT);
+//					}
+//					moving = true;
+//				}
+//				else if ( keycode == KeyEvent.VK_D || keycode == KeyEvent.VK_RIGHT ){
+//					if(moving == false){
+//						mf.playerJoy.sendMove(mf.playerJoy.RIGHT);
+//						System.out.println("RIGHT");
+//					}
+//					moving = true;
+//				}
+//				else if ( keycode == KeyEvent.VK_W || keycode == KeyEvent.VK_DOWN ){
+//					if(moving == false){
+//						mf.playerJoy.sendMove(mf.playerJoy.BACK);
+//						System.out.println("DOWN");
+//					}
+//					moving = true;
+//				}
+//				else if ( keycode == KeyEvent.VK_ESCAPE){
+//					// Unlock all robots
+//					showLockInUse = false;
+//					drawClick = false;
+//					Robot.setRobotInUse(-1);
+//					for(Robot z : robots){
+//						Gui.serverComm.writeStream("UNLOCK " + z.getUniqueId());
+//					}
+//				}
+//			}
+//		});
 
 	    //robotImages = new Image[robots.size()];
 	    //	    for(int i = 0; i<numRobots; i++){
 //	    	rectangles[i] = new Rectangle(10, 10);
 //	    }
 		
-	}
+//	}
 	
 	protected void paintComponent(Graphics g) {
         super.paintComponent(g);
@@ -339,7 +439,7 @@ public class Grid extends JPanel implements Scrollable, MouseListener, MouseMoti
 		// GOTO
 		clicked = new Point(x, y); 
 		y = this.getHeight()- y;
-		Gui.serverComm.writeStream("GOTO " + robots.get(Robot.getRobotInUse()).getUniqueId() + x + " " + y);
+		Gui.serverComm.writeStream("GOTO " + robots.get(Robot.getRobotInUse()).getUniqueId() + " " +  x + " " + y);
         drawClick = true;
         repaint();
 	}

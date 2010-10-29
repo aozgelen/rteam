@@ -60,6 +60,7 @@ public:
   }
 
   void setSpeed(double, double, double);
+  void moveToMapPosition(Position mapPos);
 
   bool isMoving();
   bool isDestinationSet();
@@ -105,6 +106,9 @@ protected:
   void readData();
   void updateObservations();
   Move getLastMove();
+  
+  Position convertToRobotCoordinates(Position mapPos); 
+  Position convertToMapCoordinates(Position robotPos); 
 
   int getBlobColor(player_blobfinder_blob blob);
 

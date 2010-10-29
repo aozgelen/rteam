@@ -62,6 +62,8 @@ class Robot
   long mSessionID;
   bool mPossessed;
 
+  bool foundSent;
+
   // Internal timers.
   static const double MAX_TIME_SILENCE = 60.0;
   static const double MAX_TIME_STATE   = 10.0;

@@ -25,9 +25,7 @@ Controller::Controller(PlayerClient * pc, Robot * r, Map * m, InterfaceToLocaliz
 
 void Controller::operator()() {
   // enter main loop
-  //cout << "\n\nTHREAD::CONTROLLER> " << endl; 
   while (robot->GetState() != STATE_QUIT  ) {
-    //cout << "NEW UPDATE CYCLE" << endl; // > current state: "  << endl; 
     // Update the robot.
     robot->Update();
 
@@ -36,7 +34,6 @@ void Controller::operator()() {
 
     // Take a quick breath.
     usleep(100000);
-    //cout << "END UPDATE CYCLE " << endl << endl;
   }
 }
 
@@ -75,25 +72,28 @@ void Controller::updateManualBehavior(){
       if ( !itl->isDestinationSet() ){
 	Position currPos = itl->getPosition();  // in cm
 	
-	cout << "currPos(" << currPos.getX() << ", " << currPos.getY() << ", " << currPos.getTheta() << ")" << endl;
-	
-
-	//itl->move(Position(0,0,-currPos.getTheta());
+	cout << "currPos(" 
+	     << currPos.getX() << ", " 
+	     << currPos.getY() << ", "
+	     << currPos.getTheta() << ")" << endl;
 
 	int tx = currPos.getX() - target.getX() ;
 	int ty = currPos.getY() - target.getY() ;
 	double theta = 360 - Utils::toDegrees(currPos.getTheta());
-	//double nx = tx * sin(theta) + ty * cos(theta); 
-	//double ny = tx * cos(theta) + ty * sin(theta); 
+
+	// transform global ( x, y ) to robot ( x', y' )
 	double nx = tx * cos(theta) + ty * sin(theta); 
 	double ny = -tx * sin(theta) + ty * cos(theta); 
-	cout << "tx: " << tx << ", ty: " << ty << ", theta: " << theta << ", nx: " << nx << ", ny: "<< ny << endl;
 	
 	Position dest( (int) nx, 
 		       (int) ny,
 		       0);
 
-	cout << "dest (" << dest.getX() << ", " << dest.getY() << ", " << dest.getTheta() << ")" << endl;
+	cout << "destination relative to robot (" 
+	     << dest.getX() << ", " 
+	     << dest.getY() << ", " 
+	     << dest.getTheta() << ")" << endl;
+	
 	itl->move(dest); 
 	usleep(10000);
       }
@@ -113,8 +113,11 @@ void Controller::updateMixedInitBehavior() {
     //cout << label << "target set. updating position info" << endl; 
     prevPos = currPos; 
     currPos = itl->getPosition();
-    cout << label << "currPos(" << currPos.getX() << "," << currPos.getY() << "," 
-	 << currPos.getTheta() << ") and confidence: " << itl->getConfidence() << endl; 
+    cout << label << "currPos(" 
+	 << currPos.getX() << ","
+	 << currPos.getY() << "," 
+	 << currPos.getTheta() 
+	 << ") and confidence: " << itl->getConfidence() << endl; 
     if ( !isGoalReached(planner->getTarget()) ) {
       //cout << label << "far away from target" << endl;
       /*if ( !isPlanValid() ){

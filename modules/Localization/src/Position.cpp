@@ -64,10 +64,22 @@ void Position::moveAbsolute(Move move) {
 	setTheta(theta + move.getTheta());
 }
 
-void Position::moveRelative(Move move) {
-	y += move.getX() * sin(theta) + move.getY() * cos(theta);
-	x += move.getX() * cos(theta) - move.getY() * sin(theta);
-	setTheta(theta + move.getTheta());
+/* not sure if this calculation is correct.  
+   the conversion of a global (x,y) to local (x',y') is
+   x' = x * cos(theta) + y * sin(theta)
+   y' = y * cos(theta) - x * sin(theta)
+   so converting local (x',y') to global (x,y) should be: 
+   x = x' * cos(-theta) + y' * sin(-theta)
+   y = y' * cos(-theta) - x' * sin(-theta)
+*/
+void Position::moveRelative(Move move) {  
+  // original 
+  y += move.getX() * sin(theta) + move.getY() * cos(theta);
+  x += move.getX() * cos(theta) - move.getY() * sin(theta);
+  // trial version. according to comments above. this failed!
+  //x += move.getX() * cos(-theta) + move.getY() * sin(-theta);
+  //y += -move.getX() * sin(-theta) + move.getY() * cos(-theta);
+  setTheta(theta + move.getTheta());
 }
 
 void Position::rotate(double radians) {

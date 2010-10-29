@@ -45,7 +45,7 @@ public class MainFrame extends JFrame{
 	JLabel messageFromServer;
 	JScrollPane scrollPane, scrollPaneGrid;
 	JScrollBar bar;
-	volatile boolean moving;
+//	volatile boolean moving;
 	
 	MainFrame(String title, ArrayList<Robot> robots){
 		super(title);
@@ -262,71 +262,81 @@ public class MainFrame extends JFrame{
 		
 		mainContent.validate();
 		
-		setFocusable(true);
-		addMouseListener(new MouseListener(){
-			public void mouseClicked(MouseEvent e) {
-				requestFocusInWindow();	
-				System.out.println("Focus on component");
-			}
-			public void mouseEntered(MouseEvent e) {
-			}
-			public void mouseExited(MouseEvent e) {
-			}
-			public void mousePressed(MouseEvent e) {
-			}
-			public void mouseReleased(MouseEvent e) {
-			}
-		});
-		addKeyListener(new KeyListener() {
-			// boolean moving = false;
-			public void keyTyped(KeyEvent e){
-				System.out.println("Key Typed: " + e.getKeyChar());
-			}
-			
-			public void keyPressed(KeyEvent e) {	
-				System.out.println("Key Pressed: " + (int)e.getKeyChar() + " " + e.getKeyCode());
-				handleControl(e);
-			}
-
-			public void keyReleased(KeyEvent e) {
-				System.out.println("Key Released: " + e.getKeyChar());
-				moving = false;
-				playerJoy.sendMove(playerJoy.STOP);
-			}
-
-			public void handleControl(KeyEvent e){
-				System.out.println("In HandleControl");
-				int keycode = e.getKeyCode();
-				if ( keycode == KeyEvent.VK_W || keycode == KeyEvent.VK_UP){
-					if(moving == false){
-						System.out.println("UP");
-						playerJoy.sendMove(playerJoy.FORWARD);
-					}
-					moving = true;
-				}
-				else if ( keycode == KeyEvent.VK_A || keycode == KeyEvent.VK_LEFT ){
-					if(moving == false){
-						System.out.println("LEFT");
-						playerJoy.sendMove(playerJoy.LEFT);
-					}
-					moving = true;
-				}
-				else if ( keycode == KeyEvent.VK_D || keycode == KeyEvent.VK_RIGHT ){
-					if(moving == false){
-						playerJoy.sendMove(playerJoy.RIGHT);
-						System.out.println("RIGHT");
-					}
-					moving = true;
-				}
-				else if ( keycode == KeyEvent.VK_W || keycode == KeyEvent.VK_DOWN ){
-					if(moving == false){
-						playerJoy.sendMove(playerJoy.BACK);
-						System.out.println("DOWN");
-					}
-					moving = true;
-				}
-			}
-		});
+		//setFocusable(true);
+//		addMouseListener(new MouseListener(){
+//			public void mouseClicked(MouseEvent e) {
+//				requestFocusInWindow();	
+//				System.out.println("Focus on component");
+//			}
+//			public void mouseEntered(MouseEvent e) {
+//			}
+//			public void mouseExited(MouseEvent e) {
+//			}
+//			public void mousePressed(MouseEvent e) {
+//			}
+//			public void mouseReleased(MouseEvent e) {
+//			}
+//		});
+//		addKeyListener(new KeyListener() {
+//			// boolean moving = false;
+//			public void keyTyped(KeyEvent e){
+//				System.out.println("Key Typed: " + e.getKeyChar());
+//			}
+//			
+//			public void keyPressed(KeyEvent e) {	
+//				System.out.println("Key Pressed: " + (int)e.getKeyChar() + " " + e.getKeyCode());
+//				handleControl(e);
+//			}
+//
+//			public void keyReleased(KeyEvent e) {
+//				System.out.println("Key Released: " + e.getKeyChar());
+//				moving = false;
+//				playerJoy.sendMove(playerJoy.STOP);
+//			}
+//
+//			
+//		});
+//	}
+//	public synchronized void handleControl(KeyEvent e){
+//		System.out.println("In HandleControl");
+//		int keycode = e.getKeyCode();
+//		if ( keycode == KeyEvent.VK_W || keycode == KeyEvent.VK_UP){
+//			if(moving == false){
+//				System.out.println("UP");
+//				playerJoy.sendMove(playerJoy.FORWARD);
+//			}
+//			moving = true;
+//		}
+//		else if ( keycode == KeyEvent.VK_A || keycode == KeyEvent.VK_LEFT ){
+//			if(moving == false){
+//				System.out.println("LEFT");
+//				playerJoy.sendMove(playerJoy.LEFT);
+//			}
+//			moving = true;
+//		}
+//		else if ( keycode == KeyEvent.VK_D || keycode == KeyEvent.VK_RIGHT ){
+//			if(moving == false){
+//				playerJoy.sendMove(playerJoy.RIGHT);
+//				System.out.println("RIGHT");
+//			}
+//			moving = true;
+//		}
+//		else if ( keycode == KeyEvent.VK_W || keycode == KeyEvent.VK_DOWN ){
+//			if(moving == false){
+//				playerJoy.sendMove(playerJoy.BACK);
+//				System.out.println("DOWN");
+//			}
+//			moving = true;
+//		}
+//		else if ( keycode == KeyEvent.VK_ESCAPE){
+//			// Unlock all robots
+//			grid.showLockInUse = false;
+//			grid.drawClick = false;
+//			Robot.setRobotInUse(-1);
+//			for(Robot z : robots){
+//				Gui.serverComm.writeStream("UNLOCK " + z.getUniqueId());
+//			}
+//		}
 	}
 	public void newRobotSelAndGrid(){
 		this.remove(scrollPane);

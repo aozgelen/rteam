@@ -69,8 +69,8 @@ void InterfaceToLocalization::update() {
 
   if (!isDestinationSet()){
     //cout<< label << "updateObservations" << endl;
-    updateObservations();
-  }
+     updateObservations();
+   }
 
   Move lastMove = getLastMove();
   if ( isDestinationSet() && (lastMove.getX() + lastMove.getTheta() != 0) )
@@ -152,17 +152,37 @@ Move InterfaceToLocalization::getLastMove() {
 	   << cumulativeMove.getY() << "," 
 	   << cumulativeMove.getTheta() << ")" << endl;
       
+      // this piece is contradictory to what cumulativeMove holds. 
+      // what this does is gets the difference between the odometry 
+      // and the last update to get our lastMove. but the problem is
+      // the cumulativeMove is in global coordinate system and p2d 
+      // is in local one.
+      
+      // trial: convert the cumulativeMove to robots local coordinates
+      
+      /*double locx = (cumulativeMove.getX() * cos(cumulativeMove.getTheta()) 
+		   + cumulativeMove.getY() * sin(cumulativeMove.getTheta()));
+      double locy = (-cumulativeMove.getX() * sin(cumulativeMove.getTheta()) 
+		   + cumulativeMove.getY() * cos(cumulativeMove.getTheta()));
+      
+      double x = p2d->GetXPos() - locx;
+      double y = p2d->GetYPos() - locy;
+      */
       double x = p2d->GetXPos() - cumulativeMove.getX();
       double y = p2d->GetYPos() - cumulativeMove.getY();
       double theta = p2d->GetYaw() - cumulativeMove.getTheta();
+      
+      // converted to cm 
       lastMove = Move(x * 100 ,y * 100 ,theta);
-
+      
+      // this is supposed to take the move convert it to global coordinate
+      // system. direct addition of these coordinates to start position 
+      // should give us our current location on the map.
       cumulativeMove.moveRelative(Move(x, y, theta));
     }
     else {  // position not fresh so we didn't move
       lastMove = Move(0,0,0);
     }
-    //lastMove = Move(destination.getX() * 100, destination.getY() * 100, destination.getTheta());
   
     // check if the destination is reached
     if ( positionEqual(destination, cumulativeMove) ){
@@ -176,6 +196,18 @@ Move InterfaceToLocalization::getLastMove() {
   robotMutex.unlock();
 
   return lastMove;
+}
+
+void InterfaceToLocalization::moveToMapPosition(Position mapPos){
+
+}
+
+Position InterfaceToLocalization::convertToRobotCoordinates(Position mapPos){
+
+}
+
+Position InterfaceToLocalization::convertToMapCoordinates(Position robotPos){
+
 }
 
 void InterfaceToLocalization::updateObservations() {

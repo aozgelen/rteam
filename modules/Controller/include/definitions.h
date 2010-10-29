@@ -26,6 +26,7 @@ typedef unsigned char cmd_len_t;
 #define CMD_SNAP       "SNAP"        // <--- SNAP <id> (request an image)
 #define CMD_IMAGE      "IMAGE"       // ---> IMAGE <image-data>
 #define CMD_IDENT      "IDENT"       // IDENT <num-robots> [<robot_id> <name> <type> <num-provides> <provides>]
+#define CMD_GOTO       "GOTO"        // GOTO Map-X Map-Y
 
 
 // Client/Server States
