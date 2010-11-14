@@ -15,19 +15,11 @@ public:
     stop(); 
   }
 
-  /*
-  void setState(int i){
-    cout << "\tsetting state to " << i << endl;
-    *currState = i;
-  }
-  
-  int getState() { return *currState; }
-  */
   void stop(){ itl->setSpeed(0,0,0); }
   void setOpMode(Mode m) { 
-    //cout << "setting opMode: " << m << endl;
     opMode = m; 
   }
+  void resetPathInfo();
 
   PathPlanner * getPlanner() { return planner; }
   InterfaceToLocalization * getInterfaceToLocalization() { return itl; }
@@ -37,7 +29,6 @@ public:
 
   void operator()();
 private:
-  //int * currState; 
   Mode opMode;
 
   PlayerClient * pCli; 

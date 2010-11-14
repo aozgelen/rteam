@@ -2,7 +2,9 @@
 #define _ROBOT_H
 
 #include "definitions.h"
+//#include "Controller.h"
 #include "behavior.h"
+#include "PathPlanner.h"
 #include "metrobotics.h"
 #include "InterfaceToLocalization.h"
 #include "libplayerc++/playerc++.h"
@@ -18,7 +20,7 @@ class Robot
  public:
   Robot(PlayerCc::PlayerClient& pc, InterfaceToLocalization * i, string label, string type, Behavior* bp = 0);
   ~Robot();
-
+  
   // State management.
   int  GetState() const { return mCurrentState; }
   bool IsRegistered() const { return mSessionID >= 0; }
@@ -34,6 +36,7 @@ class Robot
 		
   // Select robot behavior.
   void SetBehavior(Behavior* bp) { mBehavior = bp; }
+  void SetPlanner(PathPlanner* p) { mPlanner = p; }
 		
  private:
   // Binding to Player server
@@ -53,6 +56,7 @@ class Robot
   
   // Robot behavior.
   Behavior* mBehavior;
+  PathPlanner* mPlanner;
 
   // Interfact to Localization
   InterfaceToLocalization * itl;
@@ -93,6 +97,7 @@ class Robot
   void do_state_action_pose();
   void do_state_action_player();
   void do_state_action_found();
+  void do_state_action_goto();
 };
 
 #endif

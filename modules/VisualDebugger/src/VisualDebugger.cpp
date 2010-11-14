@@ -34,12 +34,14 @@ void VisualDebugger::keyboard(unsigned char key, int x, int y){
   if (key == ' ' ){
     robot->setOpMode(MANUAL);
     robot->stop();
+    robot->resetPathInfo(); 
   }
 }
 
 void VisualDebugger::keyboardSpecial(int key, int x, int y){
   if (key == GLUT_KEY_UP){
     robot->setOpMode(MANUAL);
+    robot->resetPathInfo();
     if ( keyboardCtrl == KEY_CTRL_STEP) 
       itl->move(Position(10, 0, 0));
     if ( keyboardCtrl == KEY_CTRL_CONT) {
@@ -49,6 +51,7 @@ void VisualDebugger::keyboardSpecial(int key, int x, int y){
   }
   if (key == GLUT_KEY_DOWN){
     robot->setOpMode(MANUAL);
+    robot->resetPathInfo(); 
     if ( keyboardCtrl == KEY_CTRL_STEP) 
       itl->move(Position(-10, 0, 0));
     if ( keyboardCtrl == KEY_CTRL_CONT) 
@@ -56,6 +59,7 @@ void VisualDebugger::keyboardSpecial(int key, int x, int y){
   }
   if (key == GLUT_KEY_LEFT){
     robot->setOpMode(MANUAL);
+    robot->resetPathInfo(); 
     if ( keyboardCtrl == KEY_CTRL_STEP) 
       itl->move(Position(0, 0, Utils::toRadians(22.5))); 
     if ( keyboardCtrl == KEY_CTRL_CONT) 
@@ -63,6 +67,7 @@ void VisualDebugger::keyboardSpecial(int key, int x, int y){
   }
   if (key == GLUT_KEY_RIGHT){
     robot->setOpMode(MANUAL);
+    robot->resetPathInfo(); 
     if ( keyboardCtrl == KEY_CTRL_STEP) 
       itl->move(Position(0, 0, Utils::toRadians(-22.5))); 
     if ( keyboardCtrl == KEY_CTRL_CONT) 
@@ -96,7 +101,7 @@ void VisualDebugger::mouse(int button, int state, int x, int y) {
     if (state == GLUT_DOWN){
       cout << "\tUSER MOUSE COMMAND: go (" << getMapX(x) << "," << getMapY(y) << ")" << endl;
       Position p = itl->getPosition();
-      
+
       Node s(1, p.getX(), p.getY()); 
       planner->setSource(s); 
 

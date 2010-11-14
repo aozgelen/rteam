@@ -223,7 +223,6 @@ int main(int argc, char **argv)
     Robot robot(pc, rbt, label, type);
     
     ct = new Controller(&pc, &robot, myMap, rbt);
-    //ct = new Controller(&pc, myMap, rbt, label, type);
     
     // connect robot to the central server. nothing happens if it fails so be careful
     if (!ct->getRobot()->Connect(central_server_hostname, central_server_port)) {
@@ -240,8 +239,8 @@ int main(int argc, char **argv)
       
       glutInit(&argc, argv);
       glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
-      glutInitWindowSize(myMap->getLength() * 2, myMap->getHeight() * 2);
-      glutInitWindowPosition(100, 100);
+      glutInitWindowSize(myMap->getLength() * 1.2, myMap->getHeight() * 1.2);
+      glutInitWindowPosition(0, 100);
       glutCreateWindow(argv[0]);
       init();
       //glutEstablishOverlay();

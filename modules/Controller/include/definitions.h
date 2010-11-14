@@ -46,6 +46,7 @@ typedef unsigned char cmd_len_t;
 #define STATE_PLAYER        13
 #define STATE_GUI_WAIT      14
 #define STATE_FOUND         15
+#define STATE_GOTO          16
 
 
 // Unique Client Names

@@ -11,11 +11,14 @@
 
 #include <iostream>
 
+/* Calculates and returns the probability of seeing this observation from a given position.
+ * If the markers in the observation is not unique, then it repeats this process for each 
+ * marker and assigns the probability of the most likely one. 
+ */ 
 double Observation::calculateLikelihoodForPosition(Position position) const {
 	vector<MapMarker> markers = map->getMarkerById(markerId);
 
 	double probability = 0;
-
 	for (int i = 0; i < markers.size(); i++) {
 		double likelihood = calculateLikelihoodForMarkerAndPosition(markers[i],
 				position);
@@ -27,8 +30,12 @@ double Observation::calculateLikelihoodForPosition(Position position) const {
 	return probability;
 }
 
-double Observation::calculateLikelihoodForMarkerAndPosition(MapMarker marker,
-		Position position) const {
+/* Given a marker and a position, this function checks the difference between the angles where the marker is observed
+ * and where it should be observed. In addition a euclidian distance is calculated. If there is not a wall between the
+ * position and marker and the distance is not too close, then the expectation of observing this marker from this position
+ * is returned.
+ */
+double Observation::calculateLikelihoodForMarkerAndPosition(MapMarker marker, Position position) const {
 
 	double expectedBearing = marker.getBearing(position);
 	double deltaAngle = fabs((double) (bearing - expectedBearing));
@@ -42,7 +49,7 @@ double Observation::calculateLikelihoodForMarkerAndPosition(MapMarker marker,
 	if (isWallBlocking(marker, position)) return 0;
 
 	double variance = 100 / distanceToMarker * Utils::toRadians(this->variance);
-
+	
 	double expectation = Utils::gaussian(deltaAngle, 0, variance)
 			/ Utils::gaussian(0, 0, variance);
 
@@ -60,11 +67,6 @@ bool Observation::isWallBlocking(MapMarker marker, Position position) const{
   vector<MapWall>::iterator iter; 
   for( iter = walls.begin(); iter !=walls.end(); iter++ ){
     if ( get_line_intersection(iter->getX0(),iter->getY0(),iter->getX1(),iter->getY1(),mx,my,px,py,&ix,&iy) ){
-      /*cout << "wall extends from: (" << iter->getX0() << "," << iter->getY0() << ") to: (" 
-	   << iter->getX1() << "," << iter->getY1() << ")" << endl ;
-      cout << "path extends from: (" << mx << "," << my << ") to: (" << px << "," << py << ")" << endl ;
-      cout << "wall is blocking line of sight. Path and the wall intersect at: (" << ix << ", " << iy << ")" << endl;  
-      */
       return true;
     }
   }

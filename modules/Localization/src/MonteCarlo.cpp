@@ -19,9 +19,9 @@ MonteCarlo::MonteCarlo(Map * map) {
 	int i;
 	this->map = map;
 	for (i = 0; i < PARTICLE_NUM; i++) {
-		particles.push_back(seedParticle());
+	  particles.push_back(seedParticle());
 	}
-
+	
 	particlesToReseed = 10;
 	DELTA_RANDOM_THETA_CONFIDENT = .1;
 	DELTA_RANDOM_XY_CONFIDENT = 10;
@@ -109,8 +109,7 @@ void MonteCarlo::applyMoveToParticles(Move delta) {
 		double probability = particles[i].probability;
 		double x = induceRandomness(delta.getX(), TRACKING_RANDOM_X, deltaXY, probability);
 		double y = induceRandomness(delta.getY(), TRACKING_RANDOM_Y, deltaXY, probability);
-		double theta = induceRandomness(delta.getTheta(), TRACKING_RANDOM_THETA, deltaTheta,
-				probability);
+		double theta = induceRandomness(delta.getTheta(), TRACKING_RANDOM_THETA, deltaTheta, probability);
 
 		particles[i].updatePosition(Move(x, y, theta));
 

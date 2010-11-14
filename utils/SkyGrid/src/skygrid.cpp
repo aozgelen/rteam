@@ -519,6 +519,9 @@ int proc_cmd( char *msgbuf, robot *myrobot) {
   }else if(command == CMD_MOVE){
     return STATE_MOVE;
 
+  }else if(command == CMD_GOTO){
+    return STATE_GOTO;
+
   }else if(command == CMD_ASK_POSE){
     return STATE_ASK_POSE;
 
@@ -666,6 +669,25 @@ int client_move( char *msgbuf, robot *myrobot) {
   istream >> command >> session_id;
 
   if(command != CMD_MOVE){
+    //cout << "This aint move!!!" << endl;
+    return STATE_IDLE;
+  }
+  if (send_or_push(msgbuf, myrobot, session_id)) {
+      return STATE_IDLE;
+  } else {
+      return STATE_QUIT;
+  }
+}
+
+int client_goto( char *msgbuf, robot *myrobot) {
+  string command;
+  long session_id = -1;
+  string p(msgbuf);
+  stringstream istream(p);
+
+  istream >> command >> session_id;
+
+  if(command != CMD_GOTO){
     //cout << "This aint move!!!" << endl;
     return STATE_IDLE;
   }
@@ -1206,6 +1228,9 @@ void *client_handler( void *arg ) {
 	case STATE_MOVE:
 	    command = STATE_MOVE;
 	    break;
+	case STATE_GOTO:
+	    command = STATE_GOTO;
+	    break;
 	default:
 	    //cout << "State was: " << state << endl;
 	    push_paint("ERROR", "Invalid State", myrobot->get_session_id());
@@ -1311,6 +1336,7 @@ int main( int argc, char *argv[] ) {
   function_array[STATE_PROC_CMD] = &proc_cmd;
   function_array[STATE_IDENT] = &client_ident;
   function_array[STATE_MOVE] = &client_move;
+  function_array[STATE_GOTO] = &client_goto;
   function_array[STATE_ERROR] = &client_error;
   function_array[STATE_LOCK] = &client_lock;
   function_array[STATE_UNLOCK] = &client_unlock;

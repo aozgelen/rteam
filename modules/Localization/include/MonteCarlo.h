@@ -26,23 +26,14 @@ using namespace std;
 class MonteCarlo {
 public:
 	MonteCarlo(Map * map);
-	Position getPosition();
+
 	void updateFilter(Move delta, vector<Observation>& obs);
 
-	double getConfidence() const {
-		return confidence;
-	}
-
-	vector<Particle> getParticles() {
-		return particles;
-	}
-
-	void setDebugger(MonteCarloDebugger * debugger) {
-		this->debugger = debugger;
-	}
-	
+	double getConfidence() const { return confidence; }
+	vector<Particle> getParticles() { return particles; }
+	void setDebugger(MonteCarloDebugger * debugger) { this->debugger = debugger; }
 	MonteCarloDebugger* getDebugger() { return debugger; }
-
+	Position getPosition();
 	void setRandomCoefficients(double thetaConfident, double xyConfident, double theta, double xy);
 
 private:

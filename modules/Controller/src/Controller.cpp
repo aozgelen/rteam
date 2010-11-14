@@ -1,8 +1,6 @@
 /*
  * Controller.cpp
  *
- *  Created on: Aug 30, 2010
- *      Author: tuna ozgelen
  */
 
 #include "Controller.h"
@@ -20,6 +18,7 @@ Controller::Controller(PlayerClient * pc, Robot * r, Map * m, InterfaceToLocaliz
   planner = new PathPlanner(*navGraph,n,n); 
   waypoint = n;
 
+  robot->SetPlanner(planner);
   //setOpMode(MANUAL);
 }
 
@@ -65,45 +64,26 @@ void Controller::updateBehavior() {
 }
 
 void Controller::updateManualBehavior(){ 
-  //updateMixedInitBehavior() ; 
   if ( isTargetSet() ) {
     Node target = planner->getTarget(); 
-    if ( !isGoalReached(target) ){
-      if ( !itl->isDestinationSet() ){
-	Position currPos = itl->getPosition();  // in cm
-	
-	cout << "currPos(" 
-	     << currPos.getX() << ", " 
-	     << currPos.getY() << ", "
-	     << currPos.getTheta() << ")" << endl;
 
-	int tx = currPos.getX() - target.getX() ;
-	int ty = currPos.getY() - target.getY() ;
-	double theta = 360 - Utils::toDegrees(currPos.getTheta());
-
-	// transform global ( x, y ) to robot ( x', y' )
-	double nx = tx * cos(theta) + ty * sin(theta); 
-	double ny = -tx * sin(theta) + ty * cos(theta); 
-	
-	Position dest( (int) nx, 
-		       (int) ny,
-		       0);
-
-	cout << "destination relative to robot (" 
-	     << dest.getX() << ", " 
-	     << dest.getY() << ", " 
-	     << dest.getTheta() << ")" << endl;
-	
-	itl->move(dest); 
-	usleep(10000);
-      }
-    }
-    else{
-      cout << "target reached" << endl;
-      Node n; 
-      planner->setTarget(n);      
+    if ( !itl->isDestinationSet() ){
+      itl->moveToMapPosition( target.getX(), target.getY() );
     }
   }
+  
+  if ( itl->isDestinationReached() ){
+    cout << "target reached" << endl;
+    resetPathInfo();
+  }
+}
+
+void Controller::resetPathInfo() {
+  Node n; 
+  planner->setTarget(n);
+  planner->setSource(n);
+  planner->resetPath();
+  itl->resetDestinationInfo();
 }
 
 /* this is the main control behavior function */
@@ -180,8 +160,7 @@ void Controller::updateMixedInitBehavior() {
     else {
       // target reached remove target from path
       cout << label << "target reached. setting planner target to a null-index node" << endl;
-      Node n; 
-      planner->setTarget(n);
+      resetPathInfo();
       //waypoint = n;
     }
   }
@@ -201,12 +180,14 @@ bool Controller::isPlanValid(){
 // true if the position estimate is rather good (?) and the robot is at most 30cm away from the goal point
 // used both for waypoints and target point 
 bool Controller::isGoalReached(Node g){
-  if ( g.getID() != Node::invalid_node_index ){
+  /* if ( g.getID() != Node::invalid_node_index ){
     double d = get_euclidian_distance( currPos.getX(), currPos.getY(), g.getX(), g.getY() ); 
     return ( d < 30 ); 
   }
   else
     return false;
+  */
+  //return itl->isDestinationSet()  ; 
 }
 
 bool Controller::isTargetSet(){

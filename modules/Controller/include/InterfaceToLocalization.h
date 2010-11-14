@@ -1,8 +1,6 @@
 /*
  * InterfaceToLocalization.h
  *
- *  Created on: Jun 22, 2010
- *      Author: robotics
  */
 
 #ifndef INTERFACE_TO_LOCALIZATION_H_
@@ -60,11 +58,12 @@ public:
   }
 
   void setSpeed(double, double, double);
-  void moveToMapPosition(Position mapPos);
+  void moveToMapPosition(int, int);
 
-  bool isMoving();
+  bool isDestinationReached() { return destinationReached; }
   bool isDestinationSet();
   bool isFound() { return foundItem; }
+  void resetDestinationInfo(); 
 
   void setBlobFinderProxy(PlayerClient*);
   void setPosition2dProxy(PlayerClient*);
@@ -75,7 +74,6 @@ public:
 
 protected:
   MonteCarlo * mc;
-  //PlayerClient * robot;
   MonteCarloDebugger * debugger; 
   CameraProxy * cp;
   BlobfinderProxy * bfp;
@@ -83,14 +81,12 @@ protected:
   
   boost::mutex robotMutex;
 
-  // when a destination is set this is where the starting position is kept. 
-  // this is used to go around MCPositionEstimator which doesn't work well
-  // when particles are spread, which is the case when robot doesn't see 
-  // markers for some time (e.g. when in motion). 
   Position startPos; 
-
+  Position previousMove; 
+  bool destinationReached; 
   Position destination;
   Position cumulativeMove;
+
   Map * map;
   int fov;						//the field of vision in degrees
   vector<Observation> obs;
@@ -109,6 +105,7 @@ protected:
   
   Position convertToRobotCoordinates(Position mapPos); 
   Position convertToMapCoordinates(Position robotPos); 
+  double calcHeadingToDestination(double x, double y);
 
   int getBlobColor(player_blobfinder_blob blob);
 

@@ -11,7 +11,7 @@
 #include <math.h>
 #include <string>
 #include <stdlib.h>
-
+#include <iostream>
 using namespace std;
 
 #define PI acos((double)-1)
@@ -34,7 +34,6 @@ public:
 	static double gaussian(double x, double mean, double variance) {
 		double coef = 1 / sqrt(2 * PI * variance);
 		double exponent = -1 * (x - mean) * (x - mean) / (2 * variance);
-
 		double retVal = coef * pow(M_E, exponent);
 		return retVal;
 	}

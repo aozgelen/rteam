@@ -155,6 +155,9 @@ void Robot::Update()
   case STATE_PLAYER: {
     do_state_action_player();
   } break;
+  case STATE_GOTO: {
+    do_state_action_goto(); 
+  } break;
   default: {
     if (ROBOT_DEBUG) cerr << signature << " - unrecognized state" << endl;
     do_state_change(STATE_QUIT);
@@ -512,62 +515,54 @@ void Robot::do_state_action_cmd_proc()
 	if (ROBOT_DEBUG) cerr << signature << " - PING; next state: STATE_PONG_SEND" << endl;
 	do_state_change(STATE_PONG_SEND);
       }
-    else
-      if (cmd.find(CMD_UNLOCK) != string::npos)
-	{
-	  mPossessed = false;
-	  // Continue behavior.
-	  if (mBehavior) {
-	    mBehavior->Restart();
-	  }
-	  if (ROBOT_DEBUG) cerr << signature << " - UNLOCK; next state: STATE_IDLE" << endl;
-	  do_state_change(STATE_IDLE);
-	}
-      else
-	if (cmd.find(CMD_LOCK) != string::npos)
-	  {
-	    mPossessed = true;
-	    // Cease behavior.
-	    if (mBehavior) {
-	      mBehavior->Stop();
-	    }
-	    if (ROBOT_DEBUG) cerr << signature << " - LOCK; next state: STATE_IDLE" << endl;
-	    do_state_change(STATE_IDLE);
-	  }
-	else
-	  //if (cmd.find(CMD_MOVE) != string::npos)
-	  if (cmd.find(CMD_MOVE) != string::npos || cmd.find(CMD_GOTO) != string::npos)
-	    {
-	      // Save the command; it will be processed in the next state.
-	      mStringBuffer = ss.str();
-	      if (ROBOT_DEBUG) cerr << signature << " - MOVE; next state: STATE_MOVING" << endl;
-	      do_state_change(STATE_MOVING);
-	    }
-	  else
-	    if (cmd.find(CMD_ASKPOSE) != string::npos)
-	      {
-		if (ROBOT_DEBUG) cerr << signature << " - ASKPOSE; next state: STATE_POSE" << endl;
-		do_state_change(STATE_POSE);
-	      }
-	    else
-	      if (cmd.find(CMD_ASKPLAYER) != string::npos)
-		{
-		  // Save the command; it will be used in the next state.
-		  mStringBuffer = ss.str();
-		  if (ROBOT_DEBUG) cerr << signature << " - ASKPLAYER; next state: STATE_PLAYER" << endl;
-		  do_state_change(STATE_PLAYER);
-		}
-	      else
-		if (cmd.find(CMD_QUIT) != string::npos)
-		  {
-		    if (ROBOT_DEBUG) cerr << signature << " - QUIT; next state: STATE_QUIT" << endl;
-		    do_state_change(STATE_QUIT);
-		  }
-		else
-		  {
-		    if (ROBOT_DEBUG) cerr << signature << " - unrecognized command; next state: STATE_IDLE" << endl;
-		    do_state_change(STATE_IDLE);
-		  }
+    else if (cmd.find(CMD_UNLOCK) != string::npos) {
+      mPossessed = false;
+      // Continue behavior.
+      if (mBehavior) {
+	mBehavior->Restart();
+      }
+      if (ROBOT_DEBUG) cerr << signature << " - UNLOCK; next state: STATE_IDLE" << endl;
+      do_state_change(STATE_IDLE);
+    }
+    else if (cmd.find(CMD_LOCK) != string::npos) {
+      mPossessed = true;
+      // Cease behavior.
+      if (mBehavior) {
+	mBehavior->Stop();
+      }
+      if (ROBOT_DEBUG) cerr << signature << " - LOCK; next state: STATE_IDLE" << endl;
+      do_state_change(STATE_IDLE);
+    }
+    else if (cmd.find(CMD_MOVE) != string::npos) {
+      // Save the command; it will be processed in the next state.
+      mStringBuffer = ss.str();
+      if (ROBOT_DEBUG) cerr << signature << " - MOVE; next state: STATE_MOVING" << endl;
+      do_state_change(STATE_MOVING);
+    }
+    else if (cmd.find(CMD_GOTO) != string::npos) {
+      // Save the command; it will be processed in the next state.
+      mStringBuffer = ss.str();
+      if (ROBOT_DEBUG) cerr << signature << " - GOTO; next state: STATE_GOTO" << endl;
+      do_state_change(STATE_GOTO);
+    }
+    else if (cmd.find(CMD_ASKPOSE) != string::npos) {
+      if (ROBOT_DEBUG) cerr << signature << " - ASKPOSE; next state: STATE_POSE" << endl;
+      do_state_change(STATE_POSE);
+    }
+    else if (cmd.find(CMD_ASKPLAYER) != string::npos) {
+      // Save the command; it will be used in the next state.
+      mStringBuffer = ss.str();
+      if (ROBOT_DEBUG) cerr << signature << " - ASKPLAYER; next state: STATE_PLAYER" << endl;
+      do_state_change(STATE_PLAYER);
+    }
+    else if (cmd.find(CMD_QUIT) != string::npos) {
+      if (ROBOT_DEBUG) cerr << signature << " - QUIT; next state: STATE_QUIT" << endl;
+      do_state_change(STATE_QUIT);
+    }
+    else {
+      if (ROBOT_DEBUG) cerr << signature << " - unrecognized command; next state: STATE_IDLE" << endl;
+      do_state_change(STATE_IDLE);
+    }
   } else {
     if (ROBOT_DEBUG) cerr << signature << " - failure; next state: STATE_IDLE" << endl;
     do_state_change(STATE_IDLE);
@@ -600,83 +595,115 @@ void Robot::do_state_action_moving()
   }
   
   // Make sure that we have the correct arguments.
-  string command, FAILURE;
+  string command;
   long id = -1;
   double xv = 0, yv = 0, av = 0;
-  int xpos, ypos;
   stringstream iss(mStringBuffer);
   bool argFail = false;
   if (!(iss >> command >> id >> xv >> yv >> av) || (command.find(CMD_MOVE) == string::npos) || (mSessionID != id)) {
-    /*if ( !(iss >> command >> id ) ){
-    argFail = true;
-    FAILURE = "command, id read failed" ; 
-  }
-  // if the command is a MOVE command but the following arguments are not xSpeed, ySpeed and yawSpeed
-  if (( command.find(CMD_MOVE) ) && !( iss >> xv >> yv >> av ) ){
-    argFail = true;
-    FAILURE = strcat(const_cast<char*>(CMD_MOVE), "failed: invalid arguments");
-  }
-  // if the command is a GOTO command but the following arguments are not xPos and yPos
-  if (( command.find(CMD_GOTO) ) && !( iss >> xpos >> ypos ) ){
-    argFail = true;
-    FAILURE = strcat(const_cast<char*>(CMD_GOTO), "failed: invalid arguments");
-  }
-  // if the command is not neither GOTO nor MOVE 
-  if (!( command.find(CMD_MOVE ) == string::npos || command.find(CMD_GOTO) == string::npos ) ){
-    argFail = true;
-    FAILURE = "Command not recognized";
-  }
-  //the sessionID belongs to another robot
-  if (mSessionID != id){
-    argFail = true;
-    FAILURE = "Session Id mismatch." ;
-  }
-  if( argFail){*/
     stringstream oss;
-    oss << CMD_ERROR << " " << FAILURE;
+    oss << CMD_ERROR << " ";
     write(oss);
     if (ROBOT_DEBUG) cerr << signature << " - failure; next state: STATE_IDLE" << endl;
     do_state_change(STATE_IDLE);
     return;
   }
-  //else {
-    // Send the command to Player.
-    try {
-      //if ( command.find(CMD_MOVE) ) {
-	// a bad hack to turn robot in discrete intervals to prevent disorienting the user
-	// due to lag in communication. Also checks to see if the current speed is already set. 
-	// no need to send the same command twice
-	if ( av != 0 ){ 
-	  // if yawSpeed not 0 turn for 22.5 degrees 
-	  mPosition2D->ResetOdometry();
-	  mPosition2D->GoTo(0, 0, av < 0 ? -M_PI / 8 : M_PI / 8); 
-	}
-	else {
-	  // set xspeed
-	  cout << "xSpeed: " << mPosition2D->GetXSpeed() << ", ySpeed: " << mPosition2D->GetYSpeed() 
-	       << ", xv: " << xv << ", yv: " << yv << endl;
-	  if ( !(xv == mPosition2D->GetXSpeed() &&  mPosition2D->GetYSpeed() ))
-	    mPosition2D->SetSpeed(xv, yv, 0);
-	  else
-	    cout << signature << " redundant " << command << " command. Ignoring message" << endl;
-	}
-	
-	// it is supposed to be this way
-	//mPosition2D->SetSpeed(xv, yv, av);
-	//}
-      //else {     // it is a GOTO command call itl->move to handle it. also get the path from the planner
-	
-      //}
-    } catch (PlayerError) {
-      stringstream oss;
-      //oss << CMD_ERROR << " " << command << " failed: Player error";
-      oss << CMD_ERROR << " " << CMD_MOVE << " failed: Player error";
-      write(oss);
-      if (ROBOT_DEBUG) cerr << signature << " - failure; next state: STATE_IDLE" << endl;
-      do_state_change(STATE_IDLE);
-      return;
+
+  // Send the command to Player.
+  try {
+    // a bad hack to turn robot in discrete intervals to prevent disorienting the user
+    // due to lag in camera. Also checks to see if the current speed is already set. 
+    // no need to send the same command twice
+    if ( av != 0 ){ 
+      // if yawSpeed not 0 turn for 22.5 degrees 
+      cout << "accessing p2d directly from robot.cpp" << endl;
+      mPosition2D->ResetOdometry();
+      mPosition2D->GoTo(0, 0, av < 0 ? -M_PI / 8 : M_PI / 8); 
+      //itl->move(Position(0,0, av < 0 ? -M_PI/8 : M_PI/8));
     }
-    //}
+    else {
+      // set xspeed
+      cout << "xSpeed: " << mPosition2D->GetXSpeed() << ", ySpeed: " << mPosition2D->GetYSpeed() 
+	   << ", xv: " << xv << ", yv: " << yv << endl;
+      if ( !(xv == mPosition2D->GetXSpeed() &&  mPosition2D->GetYSpeed() ))
+	mPosition2D->SetSpeed(xv, yv, 0);
+      else
+	cout << signature << " redundant " << command << " command. Ignoring message" << endl;
+    }
+    
+    // it is supposed to be this way
+    //mPosition2D->SetSpeed(xv, yv, av);
+  } 
+  catch (PlayerError) {
+    stringstream oss;
+    //oss << CMD_ERROR << " " << command << " failed: Player error";
+    oss << CMD_ERROR << " " << CMD_MOVE << " failed: Player error";
+    write(oss);
+    if (ROBOT_DEBUG) cerr << signature << " - failure; next state: STATE_IDLE" << endl;
+    do_state_change(STATE_IDLE);
+    return;
+  }
+  
+  // Report success.
+  stringstream oss;
+  oss << CMD_MOVING;
+  if (write(oss)) {
+    if (ROBOT_DEBUG) cerr << signature << " - success; next state: STATE_IDLE" << endl;
+  } else {
+    if (ROBOT_DEBUG) cerr << signature << " - failure; next state: STATE_IDLE" << endl;
+  }
+  do_state_change(STATE_IDLE);
+}
+
+void Robot::do_state_action_goto()
+{
+  // Prepend function signature to error messages.
+  static const string signature = "Robot::do_state_action_goto()";
+  
+  // Make sure that we're locked.
+  if (!mPossessed) {
+    stringstream oss;
+    oss << CMD_ERROR << " " << CMD_GOTO << " failed: not locked";
+    write(oss);
+    if (ROBOT_DEBUG) cerr << signature << " - failure; next state: STATE_IDLE" << endl;
+    do_state_change(STATE_IDLE);
+    return;
+  }
+  
+  // Make sure that we're providing Position2D.
+  if (!mPosition2D) {
+    stringstream oss;
+    oss << CMD_ERROR << " " << CMD_GOTO << " failed: not providing " << CAPS_POSITION2D;
+    write(oss);
+    if (ROBOT_DEBUG) cerr << signature << " - failure; next state: STATE_IDLE" << endl;
+    do_state_change(STATE_IDLE);
+    return;
+  }
+  
+  // Make sure that we have the correct arguments.
+  string command;
+  long id = -1;
+  int xpos, ypos;
+  stringstream iss(mStringBuffer);
+  if (!(iss >> command >> id >> xpos >> ypos) || (command.find(CMD_GOTO) == string::npos) || (mSessionID != id)) {
+    stringstream oss;
+    oss << CMD_ERROR << CMD_GOTO << " failed: wrong arguments" << endl;
+    write(oss);
+    if (ROBOT_DEBUG) cerr << signature << " - failure; next state: STATE_IDLE" << endl;
+    do_state_change(STATE_IDLE);
+    return;
+  }
+
+  itl->resetDestinationInfo();
+  Position p = itl->getPosition();
+  
+  Node s(1, p.getX(), p.getY()); 
+  mPlanner->setSource(s); 
+
+  Node t(1, xpos, ypos); 
+  mPlanner->setTarget(t); 
+
+  mPlanner->calcPath();
 
   // Report success.
   stringstream oss;
@@ -726,12 +753,8 @@ void Robot::do_state_action_pose()
   // Not anymore it gets it directly from InterfaceToLocalization
   double xp = 0, yp = 0, ap = 0, confidence = 0;
   try {
-    /*xp = mPosition2D->GetXPos();
-    yp = mPosition2D->GetYPos();
-    ap = mPosition2D->GetYaw();
-    */
     Position p = itl->getPosition();  
-    double conf = itl->getConfidence();
+    confidence = itl->getConfidence();
     xp = p.getX(); 
     yp = p.getY(); 
     ap = p.getTheta();

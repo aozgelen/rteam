@@ -17,34 +17,37 @@ using namespace std;
 
 class Particle {
 public:
-	void updatePosition(Move delta);
-    void updatePostion(double rotation, double distance);
-    void updateProbability(const vector<Observation> &obs);
-    Position getPosition() const
-    {
-        return position;
-    }
-
-    void setPosition(Position position) {
-    	this->position = position;
-    }
-
-    void reset(vector<Observation*> obs);
-    string *toString()
-    {
-        char prob_str[100];
-        sprintf(prob_str, "%s probability: %f", position.toString()->c_str(), probability);
-        string *retVal = new string(prob_str);
-        return retVal;
-    }
-
-    static bool isMoreProbable(Particle p1, Particle p2);
-
-    double probability;
-    double normalizedProbability;
+  //Particle(); 
+  //Particle(double);
+  void updatePosition(Move delta);
+  void updatePostion(double rotation, double distance);
+  void updateProbability(const vector<Observation> &obs);
+  Position getPosition() const
+  {
+    return position;
+  }
+  
+  void setPosition(Position position) {
+    this->position = position;
+  }
+  
+  void reset(vector<Observation*> obs);
+  string *toString()
+  {
+    char prob_str[100];
+    sprintf(prob_str, "%s probability: %f", position.toString()->c_str(), probability);
+    string *retVal = new string(prob_str);
+    return retVal;
+  }
+  
+  static bool isMoreProbable(Particle p1, Particle p2);
+  
+  double probability;
+  double normalizedProbability;
+  const static double conservationRatio = .9;
 private:
-    Position position;
-    void changeProbability(double newProbability);
+  Position position;
+  //void changeProbability(double newProbability);
 };
 
 #endif /* PARTICLE_H_ */

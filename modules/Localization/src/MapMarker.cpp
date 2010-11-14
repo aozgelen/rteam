@@ -5,6 +5,8 @@
  *      Author: Geotty
  */
 #include "MapMarker.h"
+#include <iostream>
+using namespace std; 
 
 double MapMarker::getBearing(Position position) const{
 	double alpha;

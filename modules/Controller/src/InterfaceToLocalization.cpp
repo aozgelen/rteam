@@ -1,9 +1,6 @@
 /*
  * InterfaceToLocalization.cpp
  *
- * Author: George Rabanca 
- *         Tuna Ozgelen (currently maintaining)
- *
  */
 
 #include "InterfaceToLocalization.h"
@@ -32,8 +29,8 @@ InterfaceToLocalization::InterfaceToLocalization(Map * map,
   this->fov = fieldOfVision;
   
   destination = Position(0, 0, 0);
-  cumulativeMove = Position(0, 0, 0);
-  
+  destinationReached = false; 
+
   foundItem = false; 
 
   robotMutex.unlock();
@@ -43,41 +40,45 @@ void InterfaceToLocalization::setBlobFinderProxy(PlayerClient* pc) { bfp = new B
 
 void InterfaceToLocalization::setPosition2dProxy(PlayerClient* pc) { p2d = new Position2dProxy(pc, 0); }
 
-
 Position InterfaceToLocalization::getPosition() {
   Position pos ;
-  if ( !isDestinationSet() ) {
+    
+  //if ( !isDestinationSet() ) {
     robotMutex.lock(); 
     pos = mc->getPosition(); // in (cm)
     robotMutex.unlock();
-  }
-  else {  // startPos in (cm) and cumulativeMove in (m), we need to return (cm)
-    pos = Position( startPos.getX() + (cumulativeMove.getX() * 100),
-		    startPos.getY() + (cumulativeMove.getY() * 100), 
-		    startPos.getTheta() + cumulativeMove.getTheta());
-  }
+    /*}
+  else {  // startPos in (cm) and previousMove in (m), we need to return (cm)
+    // convert the motion into global coordinate system using startPos angle. 
+    double px = previousMove.getX(), py = previousMove.getY(), st = startPos.getTheta() ;
+    double tx = px * cos(st) + py * -sin(st); 
+    double ty = px * sin(st) + py * cos(st); 
+    
+
+    pos = Position( startPos.getX() + (tx * 100),
+		    startPos.getY() + (ty * 100), 
+		    startPos.getTheta() + previousMove.getTheta());
+		    }*/
   return pos;
 }
 
 
 /* Updates the observations and the mc filter if the robot is on the move or 
-   changed it's position since last update 
-*/
+ * changed it's position since last update 
+ */
 void InterfaceToLocalization::update() {
-
-  string label = "\tInterfaceToLocalization::update()> ";
-
   if (!isDestinationSet()){
-    //cout<< label << "updateObservations" << endl;
-     updateObservations();
-   }
+    updateObservations();
+  }
 
+  //if ( obs.size() > 0 ) 
+  //  displayObservationSummary();
+  
   Move lastMove = getLastMove();
-  if ( isDestinationSet() && (lastMove.getX() + lastMove.getTheta() != 0) )
-    cout << label << "last move(" << lastMove.getX() << "," 
-	 << lastMove.getY() << "," << lastMove.getTheta() << ")" << endl;
-  //displayObservationSummary();
-  if (obs.size() > 0 || lastMove.getX() + lastMove.getTheta() != 0) {
+  if ( lastMove.getX() + lastMove.getY() + lastMove.getTheta() != 0 ) 
+    cout << "lastMove(" << lastMove.getX() << "," << lastMove.getY() << "," << lastMove.getTheta() << ")" << endl ;
+  if (obs.size() > 0 || lastMove.getX() + lastMove.getY() + lastMove.getTheta() != 0) {
+    //cout << "applying filter" << endl;
     mc->updateFilter(lastMove, obs);
   }
 }
@@ -86,47 +87,35 @@ void InterfaceToLocalization::move(Position relativePosition) {
   string label = "\tInterfaceToLocalization::move(destination)> ";
 
   robotMutex.lock();
+
+  resetDestinationInfo();
+
   // convert x, y (cm) to (m)
   destination = Position(relativePosition.getX() / 100.0,
 			 relativePosition.getY() / 100, 
 			 relativePosition.getTheta());
+  //destinationReached = false;
+
+  //startPos = mc->getPosition();
   
-  cout << label << "new destination: (" 
+  /*cout << label << "new dest(" 
        << destination.getX() << "," 
        << destination.getY() << "," 
-       << destination.getTheta() << ")" << endl;
-  
-  // set the starting position
-  startPos = mc->getPosition();
-  cout << label << "start position set to: (" 
-       << startPos.getX() << "," 
-       << startPos.getY() << "," 
-       << startPos.getTheta() << ")" << endl;
-    
-  p2d->ResetOdometry();
+       << destination.getTheta() << ") & startPos(" 
+       << (int) startPos.getX() << "," 
+       << (int) startPos.getY() << "," 
+       << (int) startPos.getTheta() << ")" << endl;
+  */  
   p2d->GoTo(destination.getX(), destination.getY(), destination.getTheta());
-  cumulativeMove = Position(0, 0, 0);
   robotMutex.unlock();
 }
 
-// this should replace isMoving. isMoving is returning this exact same thing
-// only because the info retreived from player about the motion is not reliable.
 bool InterfaceToLocalization::isDestinationSet() {
   robotMutex.lock();
   bool destSet = !(destination == Position(0,0,0));
   robotMutex.unlock(); 
   
   return destSet; 
-}
-
-bool InterfaceToLocalization::isMoving() {
-  robotMutex.lock();
-  bool isMoving = !(destination == Position(0, 0, 0));
-  robotMutex.unlock();
-  if (isMoving)
-    cout << "Moving..." << endl;
-  
-  return isMoving;
 }
 
 Move InterfaceToLocalization::getLastMove() {
@@ -136,60 +125,62 @@ Move InterfaceToLocalization::getLastMove() {
   robotMutex.lock();
 
   if (destination == Position(0, 0, 0)){
-    //cout << label << "destination is not set. last move is (0,0,0)" << endl;
     lastMove = Move(0, 0, 0);
   }
   else {
-    if (p2d->IsFresh()) {
+    double p2dX = p2d->GetXPos(); 
+    double p2dY = p2d->GetYPos(); 
+    double p2dYaw = p2d->GetYaw(); 
+    if ( p2d->IsFresh() 
+	 && ( p2dX + p2dY + p2dYaw ) != 0 
+	 && !( p2dX == previousMove.getX() && p2dY == previousMove.getY() && p2dYaw == previousMove.getTheta() )){
       
       p2d->NotFresh();
       cout << label << "new reading, p2d: (" 
-	   << p2d->GetXPos() << "," 
-	   << p2d->GetYPos() << "," 
-	   << p2d->GetYaw() << ")" 
-	   << "\t cumulativeMove: (" 
-	   << cumulativeMove.getX() << "," 
-	   << cumulativeMove.getY() << "," 
-	   << cumulativeMove.getTheta() << ")" << endl;
+	   << p2dX << "," 
+	   << p2dY << "," 
+	   << p2dYaw << ")" 
+	   << "\t previousMove: (" 
+	   << previousMove.getX() << "," 
+	   << previousMove.getY() << "," 
+	   << previousMove.getTheta() << ")" << endl;
       
-      // this piece is contradictory to what cumulativeMove holds. 
-      // what this does is gets the difference between the odometry 
-      // and the last update to get our lastMove. but the problem is
-      // the cumulativeMove is in global coordinate system and p2d 
-      // is in local one.
+      double delta_x = 0.0, delta_y = 0.0, delta_theta = 0.0;
+
+      if (p2dX != 0) 
+	delta_x = p2dX - previousMove.getX();
+      if (p2dY != 0)
+	delta_y = p2dY - previousMove.getY();
+      if (p2dYaw != 0)
+	delta_theta = p2dYaw - previousMove.getTheta();
+
+      // convert to cm 
+      // in order to update the particle locations properly we have to convert 
+      if ( delta_x + delta_y != 0 ) {
+	int delta = sqrt( pow(delta_x * 100, 2) + pow(delta_y * 100, 2) );       
+	lastMove = Move( delta, 0, 0 ); 
+      }
+      else if ( delta_theta != 0 )
+	lastMove = Move( 0, 0, delta_theta ); 
+
+      //lastMove = Move(delta_x * 100 ,delta_y * 100 ,delta_theta);
+
+      previousMove.setX(p2dX); 
+      previousMove.setY(p2dY); 
+      previousMove.setTheta(p2dYaw);
       
-      // trial: convert the cumulativeMove to robots local coordinates
-      
-      /*double locx = (cumulativeMove.getX() * cos(cumulativeMove.getTheta()) 
-		   + cumulativeMove.getY() * sin(cumulativeMove.getTheta()));
-      double locy = (-cumulativeMove.getX() * sin(cumulativeMove.getTheta()) 
-		   + cumulativeMove.getY() * cos(cumulativeMove.getTheta()));
-      
-      double x = p2d->GetXPos() - locx;
-      double y = p2d->GetYPos() - locy;
-      */
-      double x = p2d->GetXPos() - cumulativeMove.getX();
-      double y = p2d->GetYPos() - cumulativeMove.getY();
-      double theta = p2d->GetYaw() - cumulativeMove.getTheta();
-      
-      // converted to cm 
-      lastMove = Move(x * 100 ,y * 100 ,theta);
-      
-      // this is supposed to take the move convert it to global coordinate
-      // system. direct addition of these coordinates to start position 
-      // should give us our current location on the map.
-      cumulativeMove.moveRelative(Move(x, y, theta));
     }
     else {  // position not fresh so we didn't move
       lastMove = Move(0,0,0);
     }
   
     // check if the destination is reached
-    if ( positionEqual(destination, cumulativeMove) ){
-      cout << label << "destination reached." << endl;
-      destination = Position(0, 0, 0);
-      cumulativeMove = Position(0, 0, 0);
-      p2d->ResetOdometry();
+    if ( !destinationReached 
+	 && abs(destination.getX() - previousMove.getX()) < 0.01 
+	 && abs(destination.getY() - previousMove.getY()) < 0.01 
+	 && abs(destination.getTheta() - previousMove.getTheta()) < 0.01 ){
+      //cout << label << "destination reached." << endl;
+      destinationReached = true; 
     }
 
   }
@@ -198,25 +189,73 @@ Move InterfaceToLocalization::getLastMove() {
   return lastMove;
 }
 
-void InterfaceToLocalization::moveToMapPosition(Position mapPos){
+void InterfaceToLocalization::resetDestinationInfo() {
+      destination = Position(0, 0, 0);
+      previousMove = Position(0, 0, 0);
+      p2d->ResetOdometry();
+      destinationReached = false;
+}
 
+void InterfaceToLocalization::moveToMapPosition(int x, int y){
+  Position pos = convertToRobotCoordinates(Position(x, y, 0)); 
+  move(pos);
 }
 
 Position InterfaceToLocalization::convertToRobotCoordinates(Position mapPos){
-
+  Position currPos = getPosition();  // in cm
+      
+  cout << "currPos(" 
+       << currPos.getX() << ", " 
+       << currPos.getY() << ", "
+       << currPos.getTheta() << "-Degrees:" << Utils::toDegrees(currPos.getTheta()) << ")" << endl;
+  
+  // delta x, y from map perspective
+  int tx = mapPos.getX() - currPos.getX() ;
+  int ty = mapPos.getY() - currPos.getY() ;
+  double theta = currPos.getTheta();
+  
+  // transform map ( x, y ) to robot ( x', y' )
+  double nx = tx * cos(theta) + ty * sin(theta); 
+  double ny = -tx * sin(theta) + ty * cos(theta); 
+  double ntheta = calcHeadingToDestination(nx, ny);
+  
+  Position dest( (int) nx, 
+		 (int) ny,
+		 ntheta);
+      
+  cout << "destination relative to robot (" 
+       << dest.getX() << ", " 
+       << dest.getY() << ", " 
+       << dest.getTheta() << "-Degrees:" << Utils::toDegrees(dest.getTheta()) << ")" << endl;
+  
+  return dest; 
 }
 
 Position InterfaceToLocalization::convertToMapCoordinates(Position robotPos){
+  
+}
 
+// this function returns the angle between the robots current pose and the given relative position
+// currently it checks the arctan of the location and adjusts to angle according to its quadrant
+// TODO: check if this can be replaced with atan2
+double InterfaceToLocalization::calcHeadingToDestination(double rx, double ry){
+  // make sure the div by zero doesn't happen.
+  if ( rx == 0 )
+    rx = 0.01;
+
+  double angle = atan(ry/rx);
+  if ( rx < 0 && ry < 0 ) 
+    angle = -1 * ( PI - angle ) ;
+  if ( rx < 0 && ry > 0 )
+    angle += PI ; 
+ 
+  return angle; 
 }
 
 void InterfaceToLocalization::updateObservations() {
   robotMutex.lock();
 
   obs.clear();
-
-  if ( ITL_DEBUG )
-    cout << endl << " ************************************ Observation Update **********************************" << endl;
 
   if (!bfp->IsFresh()) {
     robotMutex.unlock();
@@ -250,14 +289,6 @@ void InterfaceToLocalization::updateObservations() {
   bfp->NotFresh();
 
   /* Process blobs: join overlapping blobs of the same color */
-  if (ITL_DEBUG) {
-    printBlobs(pinkBlobs); 
-    printBlobs(yellowBlobs); 
-    printBlobs(greenBlobs); 
-    printBlobs(blueBlobs); 
-    printBlobs(orangeBlobs); 
-  }
-
   /*
     joinBlobs(pinkBlobs); 
     joinBlobs(yellowBlobs); 
@@ -265,14 +296,6 @@ void InterfaceToLocalization::updateObservations() {
     joinBlobs(blueBlobs); 
     joinBlobs(orangeBlobs); 
   */
-
-  if (ITL_DEBUG) {
-    printBlobs(pinkBlobs); 
-    printBlobs(yellowBlobs); 
-    printBlobs(greenBlobs); 
-    printBlobs(blueBlobs); 
-    printBlobs(orangeBlobs); 
-  }
 
   /* Calling order of finding marker functions is crucial!. Everytime one of these are called it erases the color 
      blobs from observations. correct order of search should be room (3 colors), corner (2 colors) 
@@ -287,13 +310,6 @@ void InterfaceToLocalization::updateObservations() {
   vector<Observation> blueOverOrangeOverYellow = findRoomMarkersFromBlobs(blueBlobs, orangeBlobs, yellowBlobs, "b/o/y");
   vector<Observation> blueOverYellowOverOrange = findRoomMarkersFromBlobs(blueBlobs, yellowBlobs, orangeBlobs, "b/y/o");
   
-  if ( ITL_DEBUG ){
-    cout << "checked room markers" << endl; 
-    cout << "bpy:" << blueOverPinkOverYellow.size() << ", byp:" << blueOverYellowOverPink.size()
-	 << ", bop:" << blueOverOrangeOverPink.size() << ", bpo:" << blueOverPinkOverOrange.size()
-	 << ", boy:" << blueOverOrangeOverYellow.size() << ", byo:" << blueOverYellowOverOrange.size() << endl;
-  }
-
   if ( !blueOverPinkOverYellow.empty() ) 
     obs.insert(obs.begin(), blueOverPinkOverYellow.begin(), blueOverPinkOverYellow.end());
   if ( !blueOverYellowOverPink.empty() ) 
@@ -307,20 +323,11 @@ void InterfaceToLocalization::updateObservations() {
   if ( !blueOverYellowOverOrange.empty() ) 
     obs.insert(obs.begin(), blueOverYellowOverOrange.begin(), blueOverYellowOverOrange.end());
 
-  if ( ITL_DEBUG ) 
-    cout << "size of obs: " << obs.size() << endl;
-
   // corridor markers
   vector<Observation> pinkOverOrangeOverYellow = findRoomMarkersFromBlobs(pinkBlobs, orangeBlobs, yellowBlobs, "p/o/y");
   vector<Observation> yellowOverPinkOverOrange = findRoomMarkersFromBlobs(yellowBlobs, pinkBlobs, orangeBlobs, "y/p/o");
   vector<Observation> pinkOverYellowOverOrange = findRoomMarkersFromBlobs(pinkBlobs, yellowBlobs, orangeBlobs, "p/y/o");
   vector<Observation> yellowOverOrangeOverPink = findRoomMarkersFromBlobs(yellowBlobs, orangeBlobs, pinkBlobs, "y/o/p");
-
-  if ( ITL_DEBUG ){
-    cout << "checked corridor markers" << endl; 
-    cout << "poy:" << pinkOverOrangeOverYellow.size() << ", ypo:" << yellowOverPinkOverOrange.size()
-	 << ", pyo:" << pinkOverYellowOverOrange.size() << ", yop:" << yellowOverOrangeOverPink.size() << endl;
-  }
 
   if ( !pinkOverOrangeOverYellow.empty() ) 
     obs.insert(obs.begin(), pinkOverOrangeOverYellow.begin(), pinkOverOrangeOverYellow.end());
@@ -331,20 +338,11 @@ void InterfaceToLocalization::updateObservations() {
   if ( !yellowOverOrangeOverPink.empty() ) 
     obs.insert(obs.begin(), yellowOverOrangeOverPink.begin(), yellowOverOrangeOverPink.end());
 
-  if ( ITL_DEBUG )
-    cout << "size of obs: " << obs.size() << endl;
-
   // corner markers
   vector<Observation> yellowOverBlue = findCornerMarkersFromBlobs(yellowBlobs, blueBlobs, "y/b");
   vector<Observation> blueOverYellow = findCornerMarkersFromBlobs(blueBlobs, yellowBlobs, "b/y");
   vector<Observation> pinkOverYellow = findCornerMarkersFromBlobs(pinkBlobs, yellowBlobs, "p/y");
   vector<Observation> yellowOverPink = findCornerMarkersFromBlobs(yellowBlobs, pinkBlobs, "y/p");
-
-  if ( ITL_DEBUG ) {
-    cout << "checked corner markers" << endl; 
-    cout << "yb:" << yellowOverBlue.size() << ", by:" << blueOverYellow.size()
-	 << ", py:" << pinkOverYellow.size() << ", yp:" << yellowOverPink.size() << endl;
-  }
 
   if ( !blueOverYellow.empty() )   
     obs.insert(obs.begin(), blueOverYellow.begin(), blueOverYellow.end());
@@ -355,44 +353,29 @@ void InterfaceToLocalization::updateObservations() {
   if ( !yellowOverPink.empty() ) 
     obs.insert(obs.begin(), yellowOverPink.begin(), yellowOverPink.end());
 
-  if ( ITL_DEBUG ) 
-    cout << "size of obs: " << obs.size() << endl;
-
   // enterance markers
   vector<Observation> blue = findEnteranceMarkersFromBlobs(blueBlobs, "b");
   vector<Observation> orange = findEnteranceMarkersFromBlobs(orangeBlobs, "o");
-
-  if ( ITL_DEBUG ) {
-    cout << "checked enterance markers" << endl; 
-    cout << "b:" << blue.size() << ", o:" << orange.size() << endl;
-  }
 
   if ( !blue.empty() ) 
     obs.insert(obs.begin(), blue.begin(), blue.end());  
   if ( !orange.empty() ) 
     obs.insert(obs.begin(), orange.begin(), orange.end());
 
-  // see if there are any green blobs
+  // green blobs
   vector<Observation> green = findGreenBlobs(greenBlobs, "g");
   obs.insert(obs.begin(), green.begin(), green.end());
+
   if ( green.size() > 0 ){ 
     foundItem = true ; 
-    if ( ITL_DEBUG )
-      cout << "found green blob" << endl;
-  }
-
-  if ( ITL_DEBUG ){
-    cout << "size of obs: " << obs.size() << endl;
-
-    for ( int i = 0; i < obs.size(); i++ ) {
-      cout << "obs " << i << " is " << obs[i].getMarkerId() << endl;
-    }
   }
 
   if ( ITL_DEBUG )
     displayObservationSummary();
-  
+
+  //cout << "unlocking robotMutex" << endl; 
   robotMutex.unlock();
+  //cout << "leaving ITL" << endl; 
 }
 
 // this function should get the values for the colors from the player colors file. Currently it is hard coded
@@ -425,65 +408,47 @@ vector<Observation> InterfaceToLocalization::findRoomMarkersFromBlobs(vector<pla
 								      vector<player_blobfinder_blob>& middleBlobs, 
 								      vector<player_blobfinder_blob>& bottomBlobs, 
 								      string id) {
-
-  if ( ITL_DEBUG )
-    cout << "checking 3 color markers :" << id << endl;
-  
   vector<Observation> ob;
 
   // process blobs: yellow and orange colors tend to get mixed up with one another. 
   // if there is a yellow or an orange blob in the searched marker. check to see if 
   // there also is the other in the observation. First step check if any of the colors
   // are in the observed blobs.
-  bool orangeOrYellow = false; 
-  if ( !(topBlobs.empty() || middleBlobs.empty() || bottomBlobs.empty() ))
-    if ( getBlobColor(topBlobs[0]) == COLOR_YELLOW || 
+  //bool orangeOrYellow = false; 
+  if ( !(topBlobs.empty() || middleBlobs.empty() || bottomBlobs.empty() )){
+    /*if ( getBlobColor(topBlobs[0]) == COLOR_YELLOW || 
 	 getBlobColor(middleBlobs[0]) == COLOR_YELLOW || 
 	 getBlobColor(middleBlobs[0]) == COLOR_ORANGE || 
 	 getBlobColor(bottomBlobs[0]) == COLOR_YELLOW || 
 	 getBlobColor(bottomBlobs[0]) == COLOR_ORANGE )  
       orangeOrYellow = true;
-  
-  for( int i = 0; i < topBlobs.size(); i++ ) {
-    for ( int k = 0; k < middleBlobs.size(); k++ ) {
-      for ( int j = 0; j < bottomBlobs.size(); j++ ) {
+    */
+    for( int i = 0; i < topBlobs.size(); i++ ) {
+      for ( int k = 0; k < middleBlobs.size(); k++ ) {
+	for ( int j = 0; j < bottomBlobs.size(); j++ ) {
 	
-	player_blobfinder_blob bottom = bottomBlobs[j];
-	player_blobfinder_blob middle = middleBlobs[k];
-	player_blobfinder_blob top = topBlobs[i]; 
-	
-	if ( ITL_DEBUG ) {
-	  cout << "top "; 
-	  printBlobInfo(top); 
-	  cout << "middle "; 
-	  printBlobInfo(middle); 
-	  cout << "bottom "; 
-	  printBlobInfo(bottom);
-	} 
-	
-	if (blobOnTopOf(top, middle) && blobOnTopOf(middle,bottom)) {
-	  // process blob: if there is orange or yellow...TO DO
+	  player_blobfinder_blob bottom = bottomBlobs[j];
+	  player_blobfinder_blob middle = middleBlobs[k];
+	  player_blobfinder_blob top = topBlobs[i]; 
 	  
-	  if ( ITL_DEBUG ) 
-	    cout << "top, middle and bottom blobs are on top of each other. room marker found!" << endl;
-	  Observation observation = Observation(id, 
-						map,
-						this->getAngle((bottom.right + bottom.left + top.right +
-								top.left + middle.right + middle.left) / 6), 
-						observationVariance);
+	  if (blobOnTopOf(top, middle) && blobOnTopOf(middle,bottom)) {
+	    Observation observation = Observation(id, 
+						  map,
+						  this->getAngle((bottom.right + bottom.left + top.right +
+								  top.left + middle.right + middle.left) / 6), 
+						  observationVariance);
 	    
-	  ob.push_back(observation);
-	  
-	  topBlobs.erase(topBlobs.begin()+i, topBlobs.begin()+i+1);
-	  i--;
-	  bottomBlobs.erase(bottomBlobs.begin()+j, bottomBlobs.begin()+j+1);
-	  j--;
-	  middleBlobs.erase(middleBlobs.begin()+k, middleBlobs.begin()+k+1);
-	  k--;
-	  if ( topBlobs.size()==0 || middleBlobs.size()==0 || bottomBlobs.size()==0 ) {
-	    if ( ITL_DEBUG )
-	      cout << "one of the blob vectors is empty. jumping out of this function! " << endl; 
-	    return ob; 
+	    ob.push_back(observation);
+	    
+	    topBlobs.erase(topBlobs.begin()+i);
+	    i--;
+	    bottomBlobs.erase(bottomBlobs.begin()+j);
+	    j--;
+	    middleBlobs.erase(middleBlobs.begin()+k);
+	    k--;
+	    if ( topBlobs.size()==0 || middleBlobs.size()==0 || bottomBlobs.size()==0 ) {
+	      return ob; 
+	    }
 	  }
 	}
       }
@@ -496,38 +461,21 @@ vector<Observation> InterfaceToLocalization::findCornerMarkersFromBlobs(vector<p
 									vector<player_blobfinder_blob>& bottomBlobs, 
 									string id) {
 
-  if ( ITL_DEBUG )
-    cout << "checking 2 color markers" << endl;
   vector<Observation> ob;
  
-  for( int i = 0; i < topBlobs.size(); i++ ){
-    for ( int j = 0; j < bottomBlobs.size(); j++ ){
-      player_blobfinder_blob bottom = bottomBlobs[j];
-      player_blobfinder_blob top = topBlobs[i]; 
-      
-      if ( ITL_DEBUG ) {
-	cout << "top "; 
-	printBlobInfo(top); 
-      
-	cout << "bottom "; 
-	printBlobInfo(bottom);
-      }
-	  
-      // process blob: add the marker only if there isn't a significant gap between them 
+  if ( !( topBlobs.empty() || bottomBlobs.empty() ) ){
+    for( int i = 0; i < topBlobs.size(); i++ ){
+      for ( int j = 0; j < bottomBlobs.size(); j++ ){
+	player_blobfinder_blob bottom = bottomBlobs[j];
+	player_blobfinder_blob top = topBlobs[i]; 
+	
+	// process blob: add the marker only if there isn't a significant gap between them 
 	double topL = static_cast<double>(top.bottom - top.top); 
 	double topW = static_cast<double>(top.right - top.left); 
 	double bottomL = static_cast<double>(bottom.bottom - bottom.top); 
 	double bottomW = static_cast<double>(bottom.right - bottom.left); 
-      double eps = 0.5;
-      if (blobOnTopOf(top, bottom) && (bottom.top - top.bottom < ( topL + bottomL )/2 )) {
-	// process blob: if you see a 2 color marker at an extreme angle the above condition will fail 
-	// to recognize a missing blob in between 2 others. check if the height/width ratio is close to 1:1
-	// This bit does more harm than good at the moment, in case you are wondering why it is commented out.
-	//if( (( topL / topW ) > 1 - eps && ( topL / topW ) < 1 + eps ) &&
-	//    (( bottomL / bottomW ) > 1 - eps && ( bottomL / bottomW ) < 1 + eps )) {
-	  if ( ITL_DEBUG ) 
-	    cout << "top blob is on top of the bottom blob. Marker found! " << endl;
-	  
+	double eps = 0.5;
+	if (blobOnTopOf(top, bottom) && (bottom.top - top.bottom < ( topL + bottomL )/2 )) {
 	  Observation observation = Observation(id, 
 						map,
 						this->getAngle((bottom.right + bottom.left + top.right + top.left) / 4), 
@@ -535,22 +483,15 @@ vector<Observation> InterfaceToLocalization::findCornerMarkersFromBlobs(vector<p
 	  
 	  ob.push_back(observation);
 	  
-	  topBlobs.erase(topBlobs.begin()+i, topBlobs.begin()+i+1);
+	  topBlobs.erase(topBlobs.begin()+i);
 	  i--;
-	  bottomBlobs.erase(bottomBlobs.begin()+j, bottomBlobs.begin()+j+1);
+	  bottomBlobs.erase(bottomBlobs.begin()+j);
 	  j--;
 	  if ( topBlobs.size()==0 || bottomBlobs.size()==0 ){
-	    if ( ITL_DEBUG )
-	      cout << "one of the blobs is empty. leaving function" << endl;
 	    return ob;
 	  }
-	  //}
-	  //else 
-	  //cout << "looking at the blobs from an extreme angle. discarding observation" << endl; 
+	}
       }
-      else 
-	if (ITL_DEBUG)
-	cout << "DISCARDING BLOB INFO: there is a significant gap between these blobs." << endl; 
     }
   }
   return ob;
@@ -559,42 +500,30 @@ vector<Observation> InterfaceToLocalization::findCornerMarkersFromBlobs(vector<p
 vector<Observation> InterfaceToLocalization::findEnteranceMarkersFromBlobs(vector<player_blobfinder_blob>& blobs,
 									   string id) {
 
-
-  if ( ITL_DEBUG )
-    cout << "checking single " << id << " markers" << endl;
   vector<Observation> ob;
-  
-  if ( ITL_DEBUG ) 
-    cout << id << " blobs size: " << blobs.size() << endl;
-  for(int i = 0; i < blobs.size(); i++ ){
-    player_blobfinder_blob blob = blobs[i];
-    if ( ITL_DEBUG ) 
-      printBlobInfo(blob);
-    
-    // process blobs: check the length/width ratio. should be close to 2:1. just to be sure 1.5:1
-    double d = static_cast<double>( blob.bottom - blob.top ) / ( blob.right - blob.left ); 
-    if (ITL_DEBUG)
-      cout << "h/w ratio: " << d << endl;
-    if ( d > 1.75 ) {           
-      Observation observation = Observation(id, 
-					    map,
-					    this->getAngle((blob.right + blob.left) / 2), 
-					    observationVariance);
+
+  if ( !blobs.empty() ) {
+    for(int i = 0; i < blobs.size(); i++ ){
+      player_blobfinder_blob blob = blobs[i];
       
-      ob.push_back(observation);
-      
-      blobs.erase(blobs.begin()+i, blobs.begin()+i+1);
-      i--;
-      if ( blobs.size() == 0 ) {
-	if ( ITL_DEBUG )  
-	  cout << "oops now our blob is empty. leaving function" << endl;
-	return ob;
+      // process blobs: check the length/width ratio. should be close to 2:1. just to be sure 1.5:1
+      double d = static_cast<double>( blob.bottom - blob.top ) / ( blob.right - blob.left ); 
+
+      if ( d > 1.75 ) {           
+	Observation observation = Observation(id, 
+					      map,
+					      this->getAngle((blob.right + blob.left) / 2), 
+					      observationVariance);
 	
+	ob.push_back(observation);
+	
+	blobs.erase(blobs.begin()+i);
+	i--;
+	if ( blobs.size() == 0 ) {
+	  return ob;
+	}
       }
     }
-    else 
-      if (ITL_DEBUG)
-	cout << "discarding observation h/w ratio doesn't match" << endl; 
   }
   return ob;
 }
@@ -602,38 +531,27 @@ vector<Observation> InterfaceToLocalization::findEnteranceMarkersFromBlobs(vecto
 vector<Observation> InterfaceToLocalization::findGreenBlobs(vector<player_blobfinder_blob>& blobs,
 									   string id) {
 
-
-  if ( ITL_DEBUG )
-    cout << "checking single " << id << " markers" << endl;
   vector<Observation> ob;
   
-  if ( ITL_DEBUG ) 
-    cout << id << " blobs size: " << blobs.size() << endl;
-  for(int i = 0; i < blobs.size(); i++ ){
-    player_blobfinder_blob blob = blobs[i];
-    if ( ITL_DEBUG ) 
-      printBlobInfo(blob);
+  if ( !blobs.empty() ) {
+    for(int i = 0; i < blobs.size(); i++ ){
+      player_blobfinder_blob blob = blobs[i];
     
-    if ( blob.area > 30 ) {           
-      Observation observation = Observation(id, 
-					    map,
-					    this->getAngle((blob.right + blob.left) / 2), 
-					    observationVariance);
+      if ( blob.area > 30 ) {           
+	Observation observation = Observation(id, 
+					      map,
+					      this->getAngle((blob.right + blob.left) / 2), 
+					      observationVariance);
       
-      ob.push_back(observation);
-      
-      blobs.erase(blobs.begin()+i, blobs.begin()+i+1);
-      i--;
-      if ( blobs.size() == 0 ) {
-	if ( ITL_DEBUG )  
-	  cout << "oops now our blob is empty. leaving function" << endl;
-	return ob;
+	ob.push_back(observation);
 	
+	blobs.erase(blobs.begin()+i, blobs.begin()+i+1);
+	i--;
+	if ( blobs.size() == 0 ) {
+	  return ob;
+	}
       }
     }
-    else 
-      if (ITL_DEBUG)
-	cout << "discarding observation area is not big enough" << endl; 
   }
   return ob;
 }
@@ -804,7 +722,8 @@ void InterfaceToLocalization::displayObservationSummary(){
   string label = "\tInterfaceToLocalization::displayObservationSummary()> " ;
   
   if ( !obs.empty() ){
-    //cout << "************************* Observation Summary *************************** " << endl; 
+    cout << "************************* Observation Summary *************************** " << endl; 
+    cout << "Confidence: " << getConfidence() << endl;
     vector<Observation>::iterator iter; 
     vector<Observation> roomMarkers; 
     vector<Observation> cornerMarkers; 
@@ -830,21 +749,21 @@ void InterfaceToLocalization::displayObservationSummary(){
     }
     
     if ( roomMarkers.size() != 0 ) {
-      cout << "\t\t\t" << roomMarkers.size() << " room markers found: " ; 
+      cout << "\t" << roomMarkers.size() << " room markers found: " ; 
       for ( vector<Observation>::iterator i = roomMarkers.begin(); i != roomMarkers.end(); i++ )
 	cout << i->getMarkerId() << " " ; 
       cout << endl;
     }
     
     if ( cornerMarkers.size() != 0 ) {
-      cout << "\t\t\t" << cornerMarkers.size() << " corner markers found: " ; 
+      cout << "\t" << cornerMarkers.size() << " corner markers found: " ; 
       for ( vector<Observation>::iterator i = cornerMarkers.begin(); i != cornerMarkers.end(); i++ )
 	cout << i->getMarkerId() << " " ; 
       cout << endl;
     }
     
     if ( enteranceMarkers.size() != 0 ) {
-      cout << "\t\t\t" << enteranceMarkers.size() << " enterance markers found: " ; 
+      cout << "\t" << enteranceMarkers.size() << " enterance markers found: " ; 
       for ( vector<Observation>::iterator i = enteranceMarkers.begin(); i != enteranceMarkers.end(); i++ )
 	cout << i->getMarkerId() << " " ; 
       cout << endl;

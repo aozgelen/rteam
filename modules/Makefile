@@ -4,6 +4,14 @@ export CPP    	= g++
 
 LIB_DIR 	= lib
 
+# Utilities: Skygrid
+#SKYGRID		= skygrid
+#SKYGRID_DIR	= ../utils/Skygrid/src/
+
+# Utilities: MetroboticsGUI
+#METROBOTICS_GUI		= metroboticsgui
+#METROBOTICS_GUI_DIR	= ../utils/MetroboticsGUI/
+
 # Dependency: MetroUtil
 METROUTIL     	= $(LIB_DIR)/libMetrobotics.a
 METROUTIL_DIR	= ./MetroUtil
@@ -42,7 +50,6 @@ OUTPUT    	= controller
 #SOURCES   	= $(wildcard *.cpp)
 #OBJECTS   	= $(patsubst %.cpp, %.o, $(SOURCES))
 
-# from Mark's Makefile
 SOURCE_PATHS 	= $(shell find $(VISDEBUG_SRC) -name "*cpp") $(shell find $(CONTROLLER_SRC) -name "*cpp") $(wildcard *.cpp)
 SRCS 		:= $(foreach source, $(SOURCE_PATHS), $(subst $(VISDEBUG_SRC)/, , $(source) ))
 SOURCES 	:= $(foreach src, $(SRCS), $(subst $(CONTROLLER_SRC)/, , $(src) ))
@@ -51,12 +58,33 @@ SOURCE_DIRS 	= $(dir $(SOURCE_PATHS))
 # Object files to link with no path
 OBJECTS 	= $(notdir $(SOURCES:.cpp=.o))
 
-# end Mark's
+################### General targets #########################
+.PHONY: $(OUTPUT) all clean purge 
+
+all: $(OUTPUT) metroutil localization pathplanner
+
+metroutil: $(METROUTIL)
+
+
+# targets for localization
+localization: $(LOCALIZE)
+
+# rebuild localization library and re-link the executable
+r-localization: c-localization $(LOCALIZE) $(OUTPUT)
+
+# clean localization library and the executable
+c-localization:
+	rm -rf $(LOCALIZE)
+	rm -rf $(OUTPUT)
+	@$(MAKE) --directory=$(LOCALIZE_DIR) clean
+
+
+# targets for 
+pathplanner: $(PATHPLAN)
 
 
 
-# General targets
-.PHONY: $(OUTPUT) clean purge
+#utils: $(SKYGRID) $(METROBOTICSGUI)
 
 #display: 
 #	@echo SOURCE_PATHS: $(SOURCE_PATHS)
@@ -100,6 +128,22 @@ $(PATHPLAN):
 	fi
 	@echo Deploying library
 	@$(MAKE) --directory=$(PATHPLAN_DIR) deploy
+
+#$(SKYGRID): 
+#	@echo Building Central Server: Skygrid
+#	@$(MAKE) --directory=$(SKYGRID_DIR)
+#	@if [ "$$?" != 0 ]; then \
+#		echo "Skygrid failed to build"; \
+#		exit 1; \
+#	fi
+
+#$(METROBOTICS_GUI): 
+#	@echo Building MetroboticsGUI
+#	@$(MAKE) --directory=$(METROBOTICS_GUI_DIR)
+#	@if [ "$$?" != 0 ]; then \
+#		echo "MetroboticsGUI failed to build"; \
+#		exit 1; \
+#	fi
 
 # Remove unnecessary output files
 clean:

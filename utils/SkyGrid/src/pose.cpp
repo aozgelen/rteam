@@ -33,7 +33,7 @@ pose::pose( int x0, int y0, float theta0, float confidence0 ) {
   x = x0;
   y = y0;
   theta = theta0;
-  confidence = 0.0;
+  confidence = confidence0;
 } // end of Pose constructor
 
 
@@ -62,7 +62,7 @@ void pose::set ( int x0, int y0, float theta0, float confidence0 ) {
   x = x0;
   y = y0;
   theta = theta0;
-  confidence = 0.0;
+  confidence = confidence0;
 } // end of set()
 
     
