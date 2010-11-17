@@ -43,8 +43,8 @@ private:
   void updateMixedInitBehavior();
   void updateAutoBehavior();
   bool isPlanValid(); 
-  bool isGoalReached(Node);
   bool isTargetSet();   
+  void localize();
 
   // behavior vars
   Position prevPos, currPos; 

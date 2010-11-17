@@ -79,7 +79,9 @@ void MonteCarlo::testAllParticlesInsideMap(char * message) {
 
 void MonteCarlo::updateFilter(Move delta, vector<Observation>& obs) {
 	applyMoveToParticles(delta);
-	updateParticleProbabilities(obs);
+	// HACK delete later
+	if ( delta.getX() + delta.getY() + delta.getTheta() == 0 ) 
+	  updateParticleProbabilities(obs);
 	resample();
 
 	//TODO: do not do it twice

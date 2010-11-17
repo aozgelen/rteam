@@ -15,40 +15,46 @@
 
 class Observation {
 public:
-	Observation(string markerId, Map* map, double bearing, double variance) :
-		bearing(0) {
+ Observation(string markerId, Map* map, double bearing, double variance, double value=1) :
+  bearing(0) {
+    this->map = map;
+    this->markerId = markerId;
+    this->bearing = bearing;
+    this->variance = variance;
+    this->value = value;
+  }
+  
+  double calculateLikelihoodForPosition(Position) const;
+  
+  double getBearing() const {
+    return bearing;
+  }
+  
+  string getMarkerId() const{
+    return markerId;
+  }
+  
+  void setMap(Map * map) {
+    this->map = map;
+  }
 
-		this->map = map;
-		this->markerId = markerId;
-		this->bearing = bearing;
-		this->variance = variance;
-	}
-
-	double calculateLikelihoodForPosition(Position) const;
-
-	double getBearing() const {
-		return bearing;
-	}
-
-	string getMarkerId() const{
-		return markerId;
-	}
-
-	void setMap(Map * map) {
-		this->map = map;
-	}
-
+  double getValue() const { return value; }
+  void setValue(double value) {
+    this->value = value; 
+  }
+  
 private:
-	
-	double calculateLikelihoodForMarkerAndPosition(MapMarker marker, Position position) const;
-
-	bool isWallBlocking(MapMarker marker, Position position) const; 
-	bool get_line_intersection(double,double,double,double,double,double,double,double,double*,double*) const;
-
-	Map * map;
-	string markerId;
-	double bearing;
-	double variance;
+  
+  double calculateLikelihoodForMarkerAndPosition(MapMarker marker, Position position) const;
+  
+  bool isWallBlocking(MapMarker marker, Position position) const; 
+  bool get_line_intersection(double,double,double,double,double,double,double,double,double*,double*) const;
+  
+  Map * map;
+  string markerId;
+  double bearing;
+  double variance;
+  double value;
 };
 
 #endif /* OBSERVATION_H_ */

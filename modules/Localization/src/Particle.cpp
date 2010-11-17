@@ -21,15 +21,20 @@ void Particle::updatePosition(Move move)
 void Particle::updateProbability(const vector<Observation> &obs)
 {
   double newProbability = 0;
+  double observationValue = 1 ; // TODO: find a good approach to calculate this
+  double sumWeights = 0; 
 
   unsigned int i;
   for (i=0; i<obs.size(); i++) {
     newProbability += obs[i].calculateLikelihoodForPosition(position);
-    //newProbability = obs[i].calculateLikelihoodForPosition(position);
+    sumWeights += obs[i].getValue() ; 
+    //newProbabiity = obs[i].calculateLikelihoodForPosition(position);
     //changeProbability(newProbability);
   }
-  ( obs.size() == 0 ) ? newProbability = 0 : newProbability /= obs.size() ;
-  probability = ( conservationRatio * probability ) + ( 1 - conservationRatio ) * newProbability ;
+  //( obs.size() == 0 ) ? newProbability = 0 : newProbability /= obs.size() ;
+  ( sumWeights == 0 ) ? newProbability = 0 : newProbability /= sumWeights ;
+  probability = ( conservationRatio * probability ) + 
+    ( 1 - conservationRatio ) * ( ( 1 - observationValue ) * probability + observationValue * newProbability );
 }
 
 void Particle::updatePostion(double rotation, double distance)

@@ -16,7 +16,7 @@ Controller::Controller(PlayerClient * pc, Robot * r, Map * m, InterfaceToLocaliz
   // initialize path planner with the navgraph. 
   Node n; 
   planner = new PathPlanner(*navGraph,n,n); 
-  waypoint = n;
+  //waypoint = n;
 
   robot->SetPlanner(planner);
   //setOpMode(MANUAL);
@@ -65,16 +65,44 @@ void Controller::updateBehavior() {
 
 void Controller::updateManualBehavior(){ 
   if ( isTargetSet() ) {
-    Node target = planner->getTarget(); 
-
     if ( !itl->isDestinationSet() ){
-      itl->moveToMapPosition( target.getX(), target.getY() );
+      if ( !planner->pathEmpty() ) {
+	cout << "target is set but destination ( first waypoint ) is not passed on to itl" << endl;
+	Node waypoint = planner->getWaypoint(); 
+	cout << "New waypoint: " ; 
+	waypoint.printNode();
+	cout << endl; 
+	itl->moveToMapPosition( planner->getWaypoint().getX(), planner->getWaypoint().getY() );
+	planner->waypointSet(); 
+      }
     }
   }
   
   if ( itl->isDestinationReached() ){
-    cout << "target reached" << endl;
-    resetPathInfo();
+    if ( isTargetSet() ) {
+      if ( planner->isObjectiveSet() ){
+	planner->waypointReached(); 
+	cout << "waypoint reached" << endl;
+	itl->resetDestinationInfo();
+	if ( planner->isPathCompleted() ) {
+	  cout << "target reached" << endl;
+	  resetPathInfo();
+	}
+	//localize();
+      }
+    }
+    else {
+      cout << "command completed" << endl; 
+      itl->resetDestinationInfo();
+    }
+  }
+}
+
+void Controller::localize() {
+  for( int i = 0; i < 16 ; i++ ){
+    itl->move(Position(0, 0, Utils::toRadians(22.5)));
+    while( !itl->isDestinationReached() )
+      usleep(100000); 
   }
 }
 
@@ -88,7 +116,7 @@ void Controller::resetPathInfo() {
 
 /* this is the main control behavior function */
 void Controller::updateMixedInitBehavior() {
-  string label = "\tController::updateBehavior()> " ;  
+  /*  string label = "\tController::updateBehavior()> " ;  
   if ( isTargetSet() ) {
     //cout << label << "target set. updating position info" << endl; 
     prevPos = currPos; 
@@ -100,7 +128,7 @@ void Controller::updateMixedInitBehavior() {
 	 << ") and confidence: " << itl->getConfidence() << endl; 
     if ( !isGoalReached(planner->getTarget()) ) {
       //cout << label << "far away from target" << endl;
-      /*if ( !isPlanValid() ){
+      if ( !isPlanValid() ){
 	//cout << label << "plan is not valid. recalculating path" << endl;
 	// this can only happen if there is a sudden change in position estimate. Updating the
 	// starting point is necessary to get a new path
@@ -110,14 +138,14 @@ void Controller::updateMixedInitBehavior() {
 	cout << endl; 
 	planner->setSource(n); 
 	planner->calcPath();
-	} */ 
+      } 
       
-      //cout << label << "plan seems to be valid" << endl;
+      cout << label << "plan seems to be valid" << endl;
       // if not chosen yet or irrelevant, choose the immediate goal point from path
       list<int> pathNodeIDs = planner->getPath();
       list<int>::iterator iter; 
       if ( waypoint.getID() == Node::invalid_node_index ) {
-	//cout << label << "waypoint not set. selecting one." << endl;
+	cout << label << "waypoint not set. selecting one." << endl;
 	for( iter = pathNodeIDs.begin(); iter != pathNodeIDs.end(); iter++ ){
 	  // check if there is a direct path between currPos and this node
 	  if ( !navGraph->isPathObstructed( currPos.getX(), currPos.getY(), 
@@ -129,7 +157,7 @@ void Controller::updateMixedInitBehavior() {
 	}
       }
       
-      /*if ( isGoalReached(waypoint) ) {
+      if ( isGoalReached(waypoint) ) {
 	Node n; 
 	waypoint = n;
 	for ( iter = pathNodeIDs.begin(); iter != pathNodeIDs.end(); iter++ ){
@@ -144,11 +172,11 @@ void Controller::updateMixedInitBehavior() {
 	      }
 	  }
 	}
-	}*/
+      }
       
-      /* double xdiff = currPos.getX() - planner->getTarget().getX();
+      double xdiff = currPos.getX() - planner->getTarget().getX();
       double ydiff = currPos.getY() - planner->getTarget().getY();
-      */
+      
       //calculate relative position to destination
       Position dest(currPos.getX() - waypoint.getX(), 
 		    currPos.getY() - waypoint.getY(),
@@ -161,9 +189,9 @@ void Controller::updateMixedInitBehavior() {
       // target reached remove target from path
       cout << label << "target reached. setting planner target to a null-index node" << endl;
       resetPathInfo();
-      //waypoint = n;
     }
   }
+  */
 }
 
 void Controller::updateAutoBehavior(){}
@@ -175,19 +203,6 @@ void Controller::updateAutoBehavior(){}
 bool Controller::isPlanValid(){
   double d = get_euclidian_distance( currPos.getX(), currPos.getY(), prevPos.getX(), prevPos.getY() ) ;
   return (( d < 75 ) && !planner->pathEmpty()); 
-}
-
-// true if the position estimate is rather good (?) and the robot is at most 30cm away from the goal point
-// used both for waypoints and target point 
-bool Controller::isGoalReached(Node g){
-  /* if ( g.getID() != Node::invalid_node_index ){
-    double d = get_euclidian_distance( currPos.getX(), currPos.getY(), g.getX(), g.getY() ); 
-    return ( d < 30 ); 
-  }
-  else
-    return false;
-  */
-  //return itl->isDestinationSet()  ; 
 }
 
 bool Controller::isTargetSet(){

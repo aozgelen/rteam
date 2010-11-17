@@ -98,14 +98,14 @@ void InterfaceToLocalization::move(Position relativePosition) {
 
   //startPos = mc->getPosition();
   
-  /*cout << label << "new dest(" 
+  cout << label << "new dest(" 
        << destination.getX() << "," 
        << destination.getY() << "," 
        << destination.getTheta() << ") & startPos(" 
        << (int) startPos.getX() << "," 
        << (int) startPos.getY() << "," 
        << (int) startPos.getTheta() << ")" << endl;
-  */  
+    
   p2d->GoTo(destination.getX(), destination.getY(), destination.getTheta());
   robotMutex.unlock();
 }
@@ -136,7 +136,7 @@ Move InterfaceToLocalization::getLastMove() {
 	 && !( p2dX == previousMove.getX() && p2dY == previousMove.getY() && p2dYaw == previousMove.getTheta() )){
       
       p2d->NotFresh();
-      cout << label << "new reading, p2d: (" 
+      /* cout << label << "new reading, p2d: (" 
 	   << p2dX << "," 
 	   << p2dY << "," 
 	   << p2dYaw << ")" 
@@ -144,7 +144,7 @@ Move InterfaceToLocalization::getLastMove() {
 	   << previousMove.getX() << "," 
 	   << previousMove.getY() << "," 
 	   << previousMove.getTheta() << ")" << endl;
-      
+      */
       double delta_x = 0.0, delta_y = 0.0, delta_theta = 0.0;
 
       if (p2dX != 0) 
@@ -178,7 +178,7 @@ Move InterfaceToLocalization::getLastMove() {
     if ( !destinationReached 
 	 && abs(destination.getX() - previousMove.getX()) < 0.01 
 	 && abs(destination.getY() - previousMove.getY()) < 0.01 
-	 && abs(destination.getTheta() - previousMove.getTheta()) < 0.01 ){
+	 && abs(destination.getTheta() - previousMove.getTheta()) < 0.03 ){
       //cout << label << "destination reached." << endl;
       destinationReached = true; 
     }
@@ -558,8 +558,10 @@ vector<Observation> InterfaceToLocalization::findGreenBlobs(vector<player_blobfi
 
 bool InterfaceToLocalization::blobOnTopOf(player_blobfinder_blob top,
 					  player_blobfinder_blob bottom) {
-  return (top.left < bottom.right && top.right > bottom.left && top.bottom
-	  < bottom.top + 3 && top.bottom + 50 > bottom.top);
+  return (top.left < bottom.right && 
+	  top.right > bottom.left && 
+	  top.bottom < bottom.top + 3 && 
+	  top.bottom + 50 > bottom.top);
 }
 
 double InterfaceToLocalization::getAngle(double x) {

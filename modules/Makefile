@@ -82,6 +82,15 @@ c-localization:
 # targets for 
 pathplanner: $(PATHPLAN)
 
+#rebuild pathplanner library and re-link the executable
+r-pathplanner: c-pathplanner $(PATHPLAN) $(OUTPUT)
+
+# clean pathplanner library and the executable
+c-pathplanner:
+	rm -rf $(PATHPLAN)
+	rm -rf $(OUTPUT)
+	rm -rf $(OBJECTS)
+	@$(MAKE) --directory=$(PATHPLAN_DIR) clean
 
 
 #utils: $(SKYGRID) $(METROBOTICSGUI)
@@ -91,6 +100,8 @@ pathplanner: $(PATHPLAN)
 #	@echo SRCS: $(SRCS)
 #	@echo SOURCES: $(SOURCES)
 #	@echo SOURCE_DIRS: $(SOURCE_DIRS)	
+
+########################################################
 
 # build metroutil, localization, pathplanner and the controller
 $(OUTPUT): $(METROUTIL) $(LOCALIZE) $(PATHPLAN) $(OBJECTS)
