@@ -76,6 +76,7 @@ r-localization: c-localization $(LOCALIZE) $(OUTPUT)
 c-localization:
 	rm -rf $(LOCALIZE)
 	rm -rf $(OUTPUT)
+	rm -rf $(OBJECTS)
 	@$(MAKE) --directory=$(LOCALIZE_DIR) clean
 
 

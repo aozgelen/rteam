@@ -21,9 +21,18 @@ void Particle::updatePosition(Move move)
 void Particle::updateProbability(const vector<Observation> &obs)
 {
   double newProbability = 0;
+<<<<<<< HEAD
   double observationValue = 1 ; // TODO: find a good approach to calculate this
   double sumWeights = 0; 
 
+=======
+  if ( selected ) {
+    for ( int i = 0 ; i < obs.size() ; i++ ) 
+      obs[i].printInfo = true; 
+    cout << "updating probability for particle at (" << position.getX() 
+	 << "," << position.getY() << "," << position.getTheta() << ")" << endl;
+  }
+>>>>>>> master
   unsigned int i;
   for (i=0; i<obs.size(); i++) {
     newProbability += obs[i].calculateLikelihoodForPosition(position);
@@ -31,10 +40,17 @@ void Particle::updateProbability(const vector<Observation> &obs)
     //newProbabiity = obs[i].calculateLikelihoodForPosition(position);
     //changeProbability(newProbability);
   }
+<<<<<<< HEAD
   //( obs.size() == 0 ) ? newProbability = 0 : newProbability /= obs.size() ;
   ( sumWeights == 0 ) ? newProbability = 0 : newProbability /= sumWeights ;
   probability = ( conservationRatio * probability ) + 
     ( 1 - conservationRatio ) * ( ( 1 - observationValue ) * probability + observationValue * newProbability );
+=======
+  ( obs.size() == 0 ) ? newProbability = 0 : newProbability /= obs.size() ;
+  if ( selected )
+    cout << "probability = (" << conservationRatio << " * " << probability << ") + ( 1 - " << conservationRatio << " ) * " << newProbability << endl;
+  probability = ( conservationRatio * probability ) + ( 1 - conservationRatio ) * newProbability ;
+>>>>>>> master
 }
 
 void Particle::updatePostion(double rotation, double distance)

@@ -36,6 +36,8 @@ public:
 	Position getPosition();
 	void setRandomCoefficients(double thetaConfident, double xyConfident, double theta, double xy);
 
+	// print DEBUG info TODO delete
+	bool particleSelected;
 private:
 	vector<Particle> particles;
 	Map *map;

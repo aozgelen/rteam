@@ -67,7 +67,7 @@ void createMap_defaultField() {
 
 void readMapFile(ifstream& mFile) {
   string  cmd, label, tmp;
-  int x1, y1, x2, y2; 
+  int x1, y1, x2, y2, lx, ly, rx, ry; 
   bool first = true ;
 
   while( !mFile.eof() ) {
@@ -98,8 +98,8 @@ void readMapFile(ifstream& mFile) {
 
       // process the command
       if ( cmd == "marker" ){ 
-	  mFile >> label >> x1 >> y1 ; 
-	  myMap->addMarker(MapMarker(label, x1, y1));	
+	mFile >> label >> x1 >> y1 >> lx >> ly >> rx >> ry ; 
+	myMap->addMarker(MapMarker(label, x1, y1, lx, ly, rx, ry));	
       }
       else if ( cmd == "wall" ){
 	mFile >> label >> x1 >> y1 >> x2 >> y2 ; 
@@ -214,6 +214,7 @@ int main(int argc, char **argv)
   }
 
   try {
+
     // connect to the player server
     PlayerClient pc(player_hostname, player_port);
 
