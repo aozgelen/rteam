@@ -21,7 +21,12 @@ void Particle::updatePosition(Move move)
 void Particle::updateProbability(const vector<Observation> &obs)
 {
   double newProbability = 0;
-
+  if ( selected ) {
+    for ( int i = 0 ; i < obs.size() ; i++ ) 
+      obs[i].printInfo = true; 
+    cout << "updating probability for particle at (" << position.getX() 
+	 << "," << position.getY() << "," << position.getTheta() << ")" << endl;
+  }
   unsigned int i;
   for (i=0; i<obs.size(); i++) {
     newProbability += obs[i].calculateLikelihoodForPosition(position);
@@ -29,6 +34,8 @@ void Particle::updateProbability(const vector<Observation> &obs)
     //changeProbability(newProbability);
   }
   ( obs.size() == 0 ) ? newProbability = 0 : newProbability /= obs.size() ;
+  if ( selected )
+    cout << "probability = (" << conservationRatio << " * " << probability << ") + ( 1 - " << conservationRatio << " ) * " << newProbability << endl;
   probability = ( conservationRatio * probability ) + ( 1 - conservationRatio ) * newProbability ;
 }
 

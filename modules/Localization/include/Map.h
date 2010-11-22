@@ -57,7 +57,7 @@ public:
   
 protected:
   vector<MapMarker> markers;
-  vector<MapWall> walls;   //added by tuna 
+  vector<MapWall> walls; 
 };
 
 #endif /* MAP_H_ */

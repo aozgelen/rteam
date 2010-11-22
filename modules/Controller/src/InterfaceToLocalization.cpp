@@ -6,11 +6,6 @@
 #include "InterfaceToLocalization.h"
 
 #define ITL_DEBUG false
-#define COLOR_PINK 0
-#define COLOR_YELLOW 1
-#define COLOR_BLUE 2
-#define COLOR_GREEN 3
-#define COLOR_ORANGE 4
 
 InterfaceToLocalization::InterfaceToLocalization(Map * map, 
 						 int fieldOfVision){
@@ -71,8 +66,8 @@ void InterfaceToLocalization::update() {
     updateObservations();
   }
 
-  //if ( obs.size() > 0 ) 
-  //  displayObservationSummary();
+  if ( obs.size() > 0 ) 
+    displayObservationSummary();
   
   Move lastMove = getLastMove();
   if ( lastMove.getX() + lastMove.getY() + lastMove.getTheta() != 0 ) 
@@ -252,6 +247,39 @@ double InterfaceToLocalization::calcHeadingToDestination(double rx, double ry){
   return angle; 
 }
 
+double InterfaceToLocalization::getAngle(double x) {
+  int xRes = 160;
+  int halfXRes = 80;
+  
+  cout << "calculating angle for " << x << endl;
+  double angleLeftOfCenter = -1 * (x - halfXRes) / xRes * Utils::toRadians(fov);
+  cout << "angle: " << angleLeftOfCenter << endl;
+  return angleLeftOfCenter;
+}
+
+double InterfaceToLocalization::radiansToDegrees(double rad) {
+  return rad * 180 / M_PI;
+}
+ 
+bool InterfaceToLocalization::positionEqual(Position p1, Position p2) {
+  double absx = fabs(p1.getX() - p2.getX());
+  double absy = fabs(p1.getY() - p2.getY());
+  double abst = fabs(p1.getTheta() - p2.getTheta());
+  
+  return (absx == 0 && absy == 0 && Utils::toRadians(abst) == 0);
+}
+
+// to go backwards
+void InterfaceToLocalization::setSpeed(double xs, double ys, double ts){
+  robotMutex.lock();
+  p2d->SetSpeed(xs, ys, ts);
+  robotMutex.unlock();
+}
+
+
+/****************************************************** BLOB PROCESSING **************************************************/
+
+
 void InterfaceToLocalization::updateObservations() {
   robotMutex.lock();
 
@@ -262,39 +290,55 @@ void InterfaceToLocalization::updateObservations() {
     return;
   }
   
-  vector<player_blobfinder_blob> pinkBlobs;
-  vector<player_blobfinder_blob> yellowBlobs;
-  vector<player_blobfinder_blob> blueBlobs;
-  vector<player_blobfinder_blob> greenBlobs;
-  vector<player_blobfinder_blob> orangeBlobs;
-  
+  vector<observationBlob> P_blobs;
+  vector<observationBlob> Y_blobs;
+  vector<observationBlob> B_blobs;
+  vector<observationBlob> G_blobs;
+  vector<observationBlob> O_blobs;
+
   for (int i = 0; i < bfp->GetCount(); i++) {
-    double bearing = getAngle((bfp->GetBlob(i).left + bfp->GetBlob(i).right) / 2);
+    player_blobfinder_blob p_blob = bfp->GetBlob(i); 
     
-    int color = getBlobColor(bfp->GetBlob(i));
+    double bearing = getAngle((p_blob.left + p_blob.right) / 2);
+    int color = getBlobColor(p_blob);
+
+    observationBlob blob( color, 
+			  p_blob.left, 
+			  p_blob.right, 
+			  p_blob.top, 
+			  p_blob.bottom, 
+			  bearing ) ;
 
     if (color == COLOR_PINK)
-      pinkBlobs.push_back(bfp->GetBlob(i));
+      P_blobs.push_back(blob);
     else if (color == COLOR_YELLOW)
-      yellowBlobs.push_back(bfp->GetBlob(i));
+      Y_blobs.push_back(blob);
     else if (color == COLOR_GREEN)
-      greenBlobs.push_back(bfp->GetBlob(i));
+      G_blobs.push_back(blob);
     else if (color == COLOR_ORANGE)
-      orangeBlobs.push_back(bfp->GetBlob(i));
+      O_blobs.push_back(blob);
     else if (color == COLOR_BLUE) {
-      blueBlobs.push_back(bfp->GetBlob(i));
+      B_blobs.push_back(blob);
     }
   }
+
+  /*
+  printBlobs(P_blobs); 
+  printBlobs(Y_blobs); 
+  printBlobs(B_blobs); 
+  printBlobs(G_blobs); 
+  printBlobs(O_blobs); 
+  */
   
   bfp->NotFresh();
 
   /* Process blobs: join overlapping blobs of the same color */
   /*
-    joinBlobs(pinkBlobs); 
-    joinBlobs(yellowBlobs); 
-    joinBlobs(greenBlobs); 
-    joinBlobs(blueBlobs); 
-    joinBlobs(orangeBlobs); 
+    joinBlobs(P_blobs); 
+    joinBlobs(Y_blobs); 
+    joinBlobs(G_blobs); 
+    joinBlobs(B_blobs); 
+    joinBlobs(O_blobs); 
   */
 
   /* Calling order of finding marker functions is crucial!. Everytime one of these are called it erases the color 
@@ -303,70 +347,70 @@ void InterfaceToLocalization::updateObservations() {
   */
 
   // room markers
-  vector<Observation> blueOverPinkOverYellow = findRoomMarkersFromBlobs(blueBlobs, pinkBlobs, yellowBlobs, "b/p/y");
-  vector<Observation> blueOverYellowOverPink = findRoomMarkersFromBlobs(blueBlobs, yellowBlobs, pinkBlobs, "b/y/p");
-  vector<Observation> blueOverOrangeOverPink = findRoomMarkersFromBlobs(blueBlobs, orangeBlobs, pinkBlobs, "b/o/p");
-  vector<Observation> blueOverPinkOverOrange = findRoomMarkersFromBlobs(blueBlobs, pinkBlobs, orangeBlobs, "b/p/o");
-  vector<Observation> blueOverOrangeOverYellow = findRoomMarkersFromBlobs(blueBlobs, orangeBlobs, yellowBlobs, "b/o/y");
-  vector<Observation> blueOverYellowOverOrange = findRoomMarkersFromBlobs(blueBlobs, yellowBlobs, orangeBlobs, "b/y/o");
+  vector<Observation> BPY_markers = getRoomMarkers(B_blobs, P_blobs, Y_blobs, "b/p/y");
+  vector<Observation> BYP_markers = getRoomMarkers(B_blobs, Y_blobs, P_blobs, "b/y/p");
+  vector<Observation> BOP_markers = getRoomMarkers(B_blobs, O_blobs, P_blobs, "b/o/p");
+  vector<Observation> BPO_markers = getRoomMarkers(B_blobs, P_blobs, O_blobs, "b/p/o");
+  vector<Observation> BOY_markers = getRoomMarkers(B_blobs, O_blobs, Y_blobs, "b/o/y");
+  vector<Observation> BYO_markers = getRoomMarkers(B_blobs, Y_blobs, O_blobs, "b/y/o");
   
-  if ( !blueOverPinkOverYellow.empty() ) 
-    obs.insert(obs.begin(), blueOverPinkOverYellow.begin(), blueOverPinkOverYellow.end());
-  if ( !blueOverYellowOverPink.empty() ) 
-    obs.insert(obs.begin(), blueOverYellowOverPink.begin(), blueOverYellowOverPink.end());
-  if ( !blueOverOrangeOverPink.empty() ) 
-    obs.insert(obs.begin(), blueOverOrangeOverPink.begin(), blueOverOrangeOverPink.end());
-  if ( !blueOverPinkOverOrange.empty() ) 
-    obs.insert(obs.begin(), blueOverPinkOverOrange.begin(), blueOverPinkOverOrange.end());
-  if ( !blueOverOrangeOverYellow.empty() ) 
-    obs.insert(obs.begin(), blueOverOrangeOverYellow.begin(), blueOverOrangeOverYellow.end());
-  if ( !blueOverYellowOverOrange.empty() ) 
-    obs.insert(obs.begin(), blueOverYellowOverOrange.begin(), blueOverYellowOverOrange.end());
+  if ( !BPY_markers.empty() ) 
+    obs.insert(obs.begin(), BPY_markers.begin(), BPY_markers.end());
+  if ( !BYP_markers.empty() ) 
+    obs.insert(obs.begin(), BYP_markers.begin(), BYP_markers.end());
+  if ( !BOP_markers.empty() ) 
+    obs.insert(obs.begin(), BOP_markers.begin(), BOP_markers.end());
+  if ( !BPO_markers.empty() ) 
+    obs.insert(obs.begin(), BPO_markers.begin(), BPO_markers.end());
+  if ( !BOY_markers.empty() ) 
+    obs.insert(obs.begin(), BOY_markers.begin(), BOY_markers.end());
+  if ( !BYO_markers.empty() ) 
+    obs.insert(obs.begin(), BYO_markers.begin(), BYO_markers.end());
 
   // corridor markers
-  vector<Observation> pinkOverOrangeOverYellow = findRoomMarkersFromBlobs(pinkBlobs, orangeBlobs, yellowBlobs, "p/o/y");
-  vector<Observation> yellowOverPinkOverOrange = findRoomMarkersFromBlobs(yellowBlobs, pinkBlobs, orangeBlobs, "y/p/o");
-  vector<Observation> pinkOverYellowOverOrange = findRoomMarkersFromBlobs(pinkBlobs, yellowBlobs, orangeBlobs, "p/y/o");
-  vector<Observation> yellowOverOrangeOverPink = findRoomMarkersFromBlobs(yellowBlobs, orangeBlobs, pinkBlobs, "y/o/p");
+  vector<Observation> POY_markers = getRoomMarkers(P_blobs, O_blobs, Y_blobs, "p/o/y");
+  vector<Observation> YPO_markers = getRoomMarkers(Y_blobs, P_blobs, O_blobs, "y/p/o");
+  vector<Observation> PYO_markers = getRoomMarkers(P_blobs, Y_blobs, O_blobs, "p/y/o");
+  vector<Observation> YOP_markers = getRoomMarkers(Y_blobs, O_blobs, P_blobs, "y/o/p");
 
-  if ( !pinkOverOrangeOverYellow.empty() ) 
-    obs.insert(obs.begin(), pinkOverOrangeOverYellow.begin(), pinkOverOrangeOverYellow.end());
-  if ( !yellowOverPinkOverOrange.empty() ) 
-    obs.insert(obs.begin(), yellowOverPinkOverOrange.begin(), yellowOverPinkOverOrange.end());
-  if ( !pinkOverYellowOverOrange.empty() ) 
-    obs.insert(obs.begin(), pinkOverYellowOverOrange.begin(), pinkOverYellowOverOrange.end());
-  if ( !yellowOverOrangeOverPink.empty() ) 
-    obs.insert(obs.begin(), yellowOverOrangeOverPink.begin(), yellowOverOrangeOverPink.end());
+  if ( !POY_markers.empty() ) 
+    obs.insert(obs.begin(), POY_markers.begin(), POY_markers.end());
+  if ( !YPO_markers.empty() ) 
+    obs.insert(obs.begin(), YPO_markers.begin(), YPO_markers.end());
+  if ( !PYO_markers.empty() ) 
+    obs.insert(obs.begin(), PYO_markers.begin(), PYO_markers.end());
+  if ( !YOP_markers.empty() ) 
+    obs.insert(obs.begin(), YOP_markers.begin(), YOP_markers.end());
 
   // corner markers
-  vector<Observation> yellowOverBlue = findCornerMarkersFromBlobs(yellowBlobs, blueBlobs, "y/b");
-  vector<Observation> blueOverYellow = findCornerMarkersFromBlobs(blueBlobs, yellowBlobs, "b/y");
-  vector<Observation> pinkOverYellow = findCornerMarkersFromBlobs(pinkBlobs, yellowBlobs, "p/y");
-  vector<Observation> yellowOverPink = findCornerMarkersFromBlobs(yellowBlobs, pinkBlobs, "y/p");
+  vector<Observation> YB_markers = getCornerMarkers(Y_blobs, B_blobs, "y/b");
+  vector<Observation> BY_markers = getCornerMarkers(B_blobs, Y_blobs, "b/y");
+  vector<Observation> PY_markers = getCornerMarkers(P_blobs, Y_blobs, "p/y");
+  vector<Observation> YP_markers = getCornerMarkers(Y_blobs, P_blobs, "y/p");
 
-  if ( !blueOverYellow.empty() )   
-    obs.insert(obs.begin(), blueOverYellow.begin(), blueOverYellow.end());
-  if ( !yellowOverBlue.empty() ) 
-    obs.insert(obs.begin(), yellowOverBlue.begin(), yellowOverBlue.end());
-  if ( !pinkOverYellow.empty() ) 
-    obs.insert(obs.begin(), pinkOverYellow.begin(), pinkOverYellow.end());
-  if ( !yellowOverPink.empty() ) 
-    obs.insert(obs.begin(), yellowOverPink.begin(), yellowOverPink.end());
+  if ( !BY_markers.empty() )   
+    obs.insert(obs.begin(), BY_markers.begin(), BY_markers.end());
+  if ( !YB_markers.empty() ) 
+    obs.insert(obs.begin(), YB_markers.begin(), YB_markers.end());
+  if ( !PY_markers.empty() ) 
+    obs.insert(obs.begin(), PY_markers.begin(), PY_markers.end());
+  if ( !YP_markers.empty() ) 
+    obs.insert(obs.begin(), YP_markers.begin(), YP_markers.end());
 
   // enterance markers
-  vector<Observation> blue = findEnteranceMarkersFromBlobs(blueBlobs, "b");
-  vector<Observation> orange = findEnteranceMarkersFromBlobs(orangeBlobs, "o");
+  vector<Observation> B_markers = getEnteranceMarkers(B_blobs, "b");
+  vector<Observation> O_markers = getEnteranceMarkers(O_blobs, "o");
 
-  if ( !blue.empty() ) 
-    obs.insert(obs.begin(), blue.begin(), blue.end());  
-  if ( !orange.empty() ) 
-    obs.insert(obs.begin(), orange.begin(), orange.end());
+  if ( !B_markers.empty() ) 
+    obs.insert(obs.begin(), B_markers.begin(), B_markers.end());  
+  if ( !O_markers.empty() ) 
+    obs.insert(obs.begin(), O_markers.begin(), O_markers.end());
 
-  // green blobs
-  vector<Observation> green = findGreenBlobs(greenBlobs, "g");
-  obs.insert(obs.begin(), green.begin(), green.end());
+  // G_markers blobs
+  vector<Observation> G_markers = findGreenObjects(G_blobs, "g");
+  obs.insert(obs.begin(), G_markers.begin(), G_markers.end());
 
-  if ( green.size() > 0 ){ 
+  if ( G_markers.size() > 0 ){ 
     foundItem = true ; 
   }
 
@@ -404,6 +448,8 @@ int InterfaceToLocalization::getBlobColor(player_blobfinder_blob blob) {
   }
 }
 
+/* 
+//BUGGY! Program chrashes with a SEGABRT when processing the blobs in this fashion. TODO: find out why
 vector<Observation> InterfaceToLocalization::findRoomMarkersFromBlobs(vector<player_blobfinder_blob>& topBlobs,
 								      vector<player_blobfinder_blob>& middleBlobs, 
 								      vector<player_blobfinder_blob>& bottomBlobs, 
@@ -416,13 +462,6 @@ vector<Observation> InterfaceToLocalization::findRoomMarkersFromBlobs(vector<pla
   // are in the observed blobs.
   //bool orangeOrYellow = false; 
   if ( !(topBlobs.empty() || middleBlobs.empty() || bottomBlobs.empty() )){
-    /*if ( getBlobColor(topBlobs[0]) == COLOR_YELLOW || 
-	 getBlobColor(middleBlobs[0]) == COLOR_YELLOW || 
-	 getBlobColor(middleBlobs[0]) == COLOR_ORANGE || 
-	 getBlobColor(bottomBlobs[0]) == COLOR_YELLOW || 
-	 getBlobColor(bottomBlobs[0]) == COLOR_ORANGE )  
-      orangeOrYellow = true;
-    */
     for( int i = 0; i < topBlobs.size(); i++ ) {
       for ( int k = 0; k < middleBlobs.size(); k++ ) {
 	for ( int j = 0; j < bottomBlobs.size(); j++ ) {
@@ -456,39 +495,46 @@ vector<Observation> InterfaceToLocalization::findRoomMarkersFromBlobs(vector<pla
   }
   return ob;
 }
+*/
 
-vector<Observation> InterfaceToLocalization::findCornerMarkersFromBlobs(vector<player_blobfinder_blob>& topBlobs,
-									vector<player_blobfinder_blob>& bottomBlobs, 
-									string id) {
-
+vector<Observation> InterfaceToLocalization::getRoomMarkers(vector<observationBlob>& topBlobs,
+								      vector<observationBlob>& middleBlobs, 
+								      vector<observationBlob>& bottomBlobs, 
+								      string id) {
   vector<Observation> ob;
- 
-  if ( !( topBlobs.empty() || bottomBlobs.empty() ) ){
-    for( int i = 0; i < topBlobs.size(); i++ ){
-      for ( int j = 0; j < bottomBlobs.size(); j++ ){
-	player_blobfinder_blob bottom = bottomBlobs[j];
-	player_blobfinder_blob top = topBlobs[i]; 
-	
-	// process blob: add the marker only if there isn't a significant gap between them 
-	double topL = static_cast<double>(top.bottom - top.top); 
-	double topW = static_cast<double>(top.right - top.left); 
-	double bottomL = static_cast<double>(bottom.bottom - bottom.top); 
-	double bottomW = static_cast<double>(bottom.right - bottom.left); 
-	double eps = 0.5;
-	if (blobOnTopOf(top, bottom) && (bottom.top - top.bottom < ( topL + bottomL )/2 )) {
-	  Observation observation = Observation(id, 
-						map,
-						this->getAngle((bottom.right + bottom.left + top.right + top.left) / 4), 
-						observationVariance);
-	  
-	  ob.push_back(observation);
-	  
-	  topBlobs.erase(topBlobs.begin()+i);
-	  i--;
-	  bottomBlobs.erase(bottomBlobs.begin()+j);
-	  j--;
-	  if ( topBlobs.size()==0 || bottomBlobs.size()==0 ){
-	    return ob;
+
+  if ( isUsable(topBlobs) && isUsable(middleBlobs) && isUsable(bottomBlobs) ){
+    for( int i = 0; i < topBlobs.size(); i++ ) {
+      for ( int k = 0; k < middleBlobs.size(); k++ ) {
+	for ( int j = 0; j < bottomBlobs.size(); j++ ) {
+	  observationBlob& top = topBlobs[i]; 
+	  observationBlob& middle = middleBlobs[k];
+	  observationBlob& bottom = bottomBlobs[j];
+
+	  if ( !top.Used() && !middle.Used() && !bottom.Used() ){
+	    if (blobOnTopOf(top, middle) && blobOnTopOf(middle,bottom)) {
+	      int avgLeft = ( top.Left() + middle.Left() + bottom.Left() ) / 3 ; 
+	      int avgRight = ( top.Right() + middle.Right() + bottom.Right() ) / 3 ; 
+	      //int avgCenter = ( avgLeft + avgRight ) / 2 ;
+
+	      //double angleCenter = getAngle(avgCenter); 
+	      double angleLeft, angleRight ;
+	      ( avgLeft > 5 ) ? angleLeft = getAngle(avgLeft) : angleLeft = Observation::InvalidBearing ;
+	      ( avgRight < 155 ) ? angleRight = getAngle(avgRight) : angleRight = Observation::InvalidBearing ;
+	      Observation observation = Observation(id, 
+						    map,
+						    //angleCenter,
+						    observationVariance,
+						    angleLeft, 
+						    angleRight);
+	      
+	      ob.push_back(observation);
+	      top.setInUse(); 
+	      middle.setInUse(); 
+	      bottom.setInUse();	      
+	      if ( !isUsable(topBlobs) || !isUsable(middleBlobs) || !isUsable(bottomBlobs) )
+		return ob;
+	    }
 	  }
 	}
       }
@@ -497,149 +543,156 @@ vector<Observation> InterfaceToLocalization::findCornerMarkersFromBlobs(vector<p
   return ob;
 }
 
-vector<Observation> InterfaceToLocalization::findEnteranceMarkersFromBlobs(vector<player_blobfinder_blob>& blobs,
+vector<Observation> InterfaceToLocalization::getCornerMarkers(vector<observationBlob>& topBlobs,
+									vector<observationBlob>& bottomBlobs, 
+									string id) {
+  
+  vector<Observation> ob;
+  
+  if ( isUsable(topBlobs) && isUsable(bottomBlobs) ){
+    for( int i = 0; i < topBlobs.size(); i++ ){
+      for ( int j = 0; j < bottomBlobs.size(); j++ ){
+	observationBlob& bottom = bottomBlobs[j];
+	observationBlob& top = topBlobs[i]; 
+	
+	// process blob: add the marker only if there isn't a significant gap between them 
+	double topL = static_cast<double>(top.Bottom() - top.Top()); 
+	double topW = static_cast<double>(top.Right() - top.Left()); 
+	double bottomL = static_cast<double>(bottom.Bottom() - bottom.Top()); 
+	double bottomW = static_cast<double>(bottom.Right() - bottom.Left()); 
+	double eps = 0.5;
+	if (blobOnTopOf(top, bottom) && (bottom.Top() - top.Bottom() < ( topL + bottomL )/2 )) {
+	  cout << "Corner blob found" << endl;
+	  int avgLeft = ( top.Left() + bottom.Left() ) / 2 ; 
+	  int avgRight = ( top.Right() + bottom.Right() ) / 2 ; 
+	  //int avgCenter = ( avgLeft + avgRight ) / 2 ;
+	  cout << "avgLeft: " << avgLeft << ", avgRight: " << avgRight << /*", avgCenter: " << avgCenter << */endl;
+	  
+	  //double angleCenter = getAngle(avgCenter); 
+	  double angleLeft, angleRight ;
+	  ( avgLeft > 5 ) ? angleLeft = getAngle(avgLeft) : angleLeft = Observation::InvalidBearing ;
+	  ( avgRight < 155 ) ? angleRight = getAngle(avgRight) : angleRight = Observation::InvalidBearing ;
+	  cout << "angleLeft: " << angleLeft << ", angleRight: " << angleRight << /*", avgCenter: " << angleCenter <<*/ endl;
+	  Observation observation = Observation(id, 
+						map,
+						//angleCenter,
+						observationVariance,
+						angleLeft, 
+						angleRight);
+
+	  
+	  ob.push_back(observation);
+	  top.setInUse(); 
+	  bottom.setInUse();
+	  if ( !isUsable(topBlobs) || !isUsable(bottomBlobs) ){
+	    return ob;
+	  }
+	}
+      }
+    }
+  }
+  
+  return ob;
+  
+}
+
+vector<Observation> InterfaceToLocalization::getEnteranceMarkers(vector<observationBlob>& blobs,
 									   string id) {
 
   vector<Observation> ob;
-
-  if ( !blobs.empty() ) {
+  
+  if ( isUsable(blobs) ) {
     for(int i = 0; i < blobs.size(); i++ ){
-      player_blobfinder_blob blob = blobs[i];
+      observationBlob blob = blobs[i];
       
       // process blobs: check the length/width ratio. should be close to 2:1. just to be sure 1.5:1
-      double d = static_cast<double>( blob.bottom - blob.top ) / ( blob.right - blob.left ); 
+      double d = static_cast<double>( blob.Bottom() - blob.Top() ) / ( blob.Right() - blob.Left() ); 
 
       if ( d > 1.75 ) {           
+	//double angleCenter = getAngle((blob.Right() + blob.Left()) / 2); 
+	double angleLeft, angleRight ;
+	( blob.Left() > 1 ) ? angleLeft = getAngle(blob.Left()) : angleLeft = Observation::InvalidBearing ;
+	( blob.Right() < 159 ) ? angleRight = getAngle(blob.Right()) : angleRight = Observation::InvalidBearing ;
+	
 	Observation observation = Observation(id, 
 					      map,
-					      this->getAngle((blob.right + blob.left) / 2), 
-					      observationVariance);
+					      //angleCenter,
+					      observationVariance,
+					      angleLeft, 
+					      angleRight);
 	
 	ob.push_back(observation);
-	
-	blobs.erase(blobs.begin()+i);
-	i--;
-	if ( blobs.size() == 0 ) {
+	blob.setInUse();
+	if ( !isUsable(blobs) ) {
 	  return ob;
 	}
       }
     }
   }
+  
   return ob;
 }
 
-vector<Observation> InterfaceToLocalization::findGreenBlobs(vector<player_blobfinder_blob>& blobs,
+vector<Observation> InterfaceToLocalization::findGreenObjects(vector<observationBlob>& blobs,
 									   string id) {
 
   vector<Observation> ob;
   
-  if ( !blobs.empty() ) {
+  if ( isUsable(blobs) ) {
     for(int i = 0; i < blobs.size(); i++ ){
-      player_blobfinder_blob blob = blobs[i];
+      observationBlob blob = blobs[i];
     
-      if ( blob.area > 30 ) {           
+      if ( blob.Area() > 30 ) {           
+	double angleLeft, angleRight ;
+	( blob.Left() > 1 ) ? angleLeft = getAngle(blob.Left()) : angleLeft = Observation::InvalidBearing ;
+	( blob.Right() < 159 ) ? angleRight = getAngle(blob.Right()) : angleRight = Observation::InvalidBearing ;
 	Observation observation = Observation(id, 
 					      map,
-					      this->getAngle((blob.right + blob.left) / 2), 
-					      observationVariance);
+					      observationVariance,
+					      angleLeft, 
+					      angleRight);
       
 	ob.push_back(observation);
-	
-	blobs.erase(blobs.begin()+i, blobs.begin()+i+1);
-	i--;
-	if ( blobs.size() == 0 ) {
+	blob.setInUse();
+	if ( !isUsable(blobs) ) {
 	  return ob;
 	}
       }
     }
   }
+  
   return ob;
 }
 
-bool InterfaceToLocalization::blobOnTopOf(player_blobfinder_blob top,
-					  player_blobfinder_blob bottom) {
-  return (top.left < bottom.right && top.right > bottom.left && top.bottom
-	  < bottom.top + 3 && top.bottom + 50 > bottom.top);
+
+bool InterfaceToLocalization::blobOnTopOf(observationBlob top,
+					  observationBlob bottom) {
+  return (top.Left() < bottom.Right() && top.Right() > bottom.Left() && top.Bottom()
+	  < bottom.Top() + 3 && top.Bottom() + 50 > bottom.Top());
 }
 
-double InterfaceToLocalization::getAngle(double x) {
-  int xRes = 160;
-  int halfXRes = 80;
-  
-  double angleLeftOfCenter = -1 * (x - halfXRes) / xRes * Utils::toRadians(fov);
-  return angleLeftOfCenter;
-}
-
-double InterfaceToLocalization::radiansToDegrees(double rad) {
-  return rad * 180 / M_PI;
-}
- 
-bool InterfaceToLocalization::positionEqual(Position p1, Position p2) {
-  double absx = fabs(p1.getX() - p2.getX());
-  double absy = fabs(p1.getY() - p2.getY());
-  double abst = fabs(p1.getTheta() - p2.getTheta());
-  
-  return (absx == 0 && absy == 0 && Utils::toRadians(abst) == 0);
-}
-
-void InterfaceToLocalization::printBlobs(vector<player_blobfinder_blob>& blobs){
+void InterfaceToLocalization::printBlobs(vector<observationBlob>& blobs){
   if( !blobs.empty() ){
     cout << "Printing " ;
-    printBlobColor(blobs[0]);
+    blobs[0].printColor();
     cout << " blobs." << endl;
-    for( vector<player_blobfinder_blob>::iterator iter = blobs.begin(); iter != blobs.end(); iter++ )
-      printBlobInfo(*iter);
+    for( vector<observationBlob>::iterator iter = blobs.begin(); iter != blobs.end(); iter++ )
+      iter->print();
   }
 }
 
-void InterfaceToLocalization::printBlobColor(player_blobfinder_blob b){
-  switch( getBlobColor(b) ){
-  case 0:
-    cout << "pink" ; 
-    break; 
-  case 1: 
-    cout << "yellow" ; 
-    break;
-  case 2: 
-    cout << "blue" ; 
-    break;
-  case 3: 
-    cout << "green" ; 
-    break;
-  case 4: 
-    cout << "orange" ; 
-    break;
-  }
+/*
+bool isUsable( vector<observationBlob>& blob ) { 
+  vector<observationBlob>::iterator iter; 
+  for ( iter = blob.begin() ; iter != blob.end() ; iter++ )
+    if ( !iter->Used() ) 
+      return true; 
+  return false;
 }
-
-void InterfaceToLocalization::printBlobInfo(player_blobfinder_blob blob){
-  cout << "blob is at (" << blob.x << "," << blob.y << "), color:" ; 
-  switch ( getBlobColor(blob) ) {
-  case COLOR_PINK: 
-    cout << "pink " ; 
-    break; 
-  case COLOR_ORANGE:
-    cout << "orange " ; 
-    break; 
-  case COLOR_YELLOW:
-    cout << "yellow " ;
-    break;
-  case COLOR_BLUE: 
-    cout << "blue ";
-  }
-  cout << ", area:" << blob.area << ", top:" << blob.top << ", bottom:" << blob.bottom 
-       << ", left:" << blob.left << ", right:" << blob.right << endl;
-}
-
-// to go backwards
-void InterfaceToLocalization::setSpeed(double xs, double ys, double ts){
-  robotMutex.lock();
-  p2d->SetSpeed(xs, ys, ts);
-  robotMutex.unlock();
-}
+*/
 
 // Fix this
-void InterfaceToLocalization::joinBlobs(vector<player_blobfinder_blob>& blobs){
+/*void InterfaceToLocalization::joinBlobs(vector<player_blobfinder_blob>& blobs){
   vector<player_blobfinder_blob> newBlobs = blobs, tempBlobs;
   bool needProcessing = true ;
   while ( needProcessing ) {
@@ -665,15 +718,14 @@ void InterfaceToLocalization::joinBlobs(vector<player_blobfinder_blob>& blobs){
     newBlobs = tempBlobs;
   }
   blobs = newBlobs; 
-}
+  }*/
 
-bool InterfaceToLocalization::isOverlapping(player_blobfinder_blob b1, player_blobfinder_blob b2 ){
+bool InterfaceToLocalization::isOverlapping(observationBlob b1, observationBlob b2 ){
   bool overlap = false; 
   // set the epsilon to be the %35 of the average height and width of these blobs.
-  // why %35? why not.
-  double hEps = ( static_cast<double>((b1.bottom - b1.top) + (b2.bottom - b2.top)) / 2) * 0.35;
-  double lEps = ( static_cast<double>((b1.right - b1.left) + (b2.right - b2.left)) / 2) * 0.35; 
-
+  double hEps = ( static_cast<double>((b1.Bottom() - b1.Top()) + (b2.Bottom() - b2.Top())) / 2) * 0.35;
+  double lEps = ( static_cast<double>((b1.Right() - b1.Left()) + (b2.Right() - b2.Left())) / 2) * 0.35; 
+  
   /* For cases: 
      
      1.
@@ -708,14 +760,15 @@ bool InterfaceToLocalization::isOverlapping(player_blobfinder_blob b1, player_bl
      ----
      b1
   */
-  if ( b2.top < b1.bottom - hEps && b2.left + lEps < b1.right ) 
+  if ( b2.Top() < b1.Bottom() - hEps && b2.Left() + lEps < b1.Right() ) 
     overlap = true; 
-  if ( b2.top < b1.bottom - hEps && b1.left + lEps < b2.right ) 
+  if ( b2.Top() < b1.Bottom() - hEps && b1.Left() + lEps < b2.Right() ) 
     overlap = true; 
-  if ( b1.top < b2.bottom - hEps && b1.left + lEps < b2.right )
+  if ( b1.Top() < b2.Bottom() - hEps && b1.Left() + lEps < b2.Right() )
     overlap = true; 
-  if ( b1.top < b2.bottom - hEps && b2.left + lEps < b1.right )
+  if ( b1.Top() < b2.Bottom() - hEps && b2.Left() + lEps < b1.Right() )
     overlap = true; 
+  return overlap;
 }
 
 void InterfaceToLocalization::displayObservationSummary(){

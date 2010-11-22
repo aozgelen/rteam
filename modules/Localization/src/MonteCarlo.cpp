@@ -33,6 +33,9 @@ MonteCarlo::MonteCarlo(Map * map) {
 	TRACKING_RANDOM_THETA = .2;
 
 	debugger = NULL;
+	
+	// TODO delete
+	particleSelected = false;
 }
 
 void MonteCarlo::setRandomCoefficients(double thetaConfident,
@@ -79,7 +82,9 @@ void MonteCarlo::testAllParticlesInsideMap(char * message) {
 
 void MonteCarlo::updateFilter(Move delta, vector<Observation>& obs) {
 	applyMoveToParticles(delta);
+	//cout << "updating Particles" << endl; 
 	updateParticleProbabilities(obs);
+	//cout << "resampling" << endl;
 	resample();
 
 	//TODO: do not do it twice
@@ -122,10 +127,15 @@ void MonteCarlo::applyMoveToParticles(Move delta) {
 
 //this method updates particles probabilities according to the current observations;
 void MonteCarlo::updateParticleProbabilities(const vector<Observation>& obs) {
-	//TODO make sure it is implemented ok...  test it !
-	for (unsigned int i = 0; i < particles.size(); i++) {
-		particles[i].updateProbability(obs);
-	}
+  //TODO make sure it is implemented ok...  test it !
+  for (unsigned int i = 0; i < particles.size(); i++) {
+    if ( particles[i].probability > 0.2 && !particleSelected ){
+      cout << "new particle selected" << endl;
+      particleSelected = true;
+      particles[i].selected = true;
+    }
+    particles[i].updateProbability(obs);
+  }
 }
 
 //this method updates the set of particles;  it duplicates successful particles and gets rid of

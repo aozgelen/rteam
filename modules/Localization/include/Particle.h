@@ -17,7 +17,9 @@ using namespace std;
 
 class Particle {
 public:
-  //Particle(); 
+  // DEBUG info TODO delete
+  Particle(): selected(false){}
+
   //Particle(double);
   void updatePosition(Move delta);
   void updatePostion(double rotation, double distance);
@@ -44,7 +46,10 @@ public:
   
   double probability;
   double normalizedProbability;
-  const static double conservationRatio = .9;
+  const static double conservationRatio = .7;
+
+  // DEBUG info TODO delete
+  bool selected; 
 private:
   Position position;
   //void changeProbability(double newProbability);
