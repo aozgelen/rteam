@@ -82,15 +82,10 @@ void MonteCarlo::testAllParticlesInsideMap(char * message) {
 
 void MonteCarlo::updateFilter(Move delta, vector<Observation>& obs) {
 	applyMoveToParticles(delta);
-<<<<<<< HEAD
-	// HACK delete later
-	if ( delta.getX() + delta.getY() + delta.getTheta() == 0 ) 
+
+	if ( obs.size() != 0 && ( delta.getX() == 0 && delta.getY() == 0 && delta.getTheta() == 0))
 	  updateParticleProbabilities(obs);
-=======
-	//cout << "updating Particles" << endl; 
-	updateParticleProbabilities(obs);
-	//cout << "resampling" << endl;
->>>>>>> master
+
 	resample();
 
 	//TODO: do not do it twice
@@ -135,11 +130,11 @@ void MonteCarlo::applyMoveToParticles(Move delta) {
 void MonteCarlo::updateParticleProbabilities(const vector<Observation>& obs) {
   //TODO make sure it is implemented ok...  test it !
   for (unsigned int i = 0; i < particles.size(); i++) {
-    if ( particles[i].probability > 0.2 && !particleSelected ){
+    /*if ( particles[i].probability > 0.2 && !particleSelected ){
       cout << "new particle selected" << endl;
       particleSelected = true;
       particles[i].selected = true;
-    }
+      }*/
     particles[i].updateProbability(obs);
   }
 }

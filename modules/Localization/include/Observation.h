@@ -14,10 +14,10 @@
 
 class Observation {
 public:
-<<<<<<< HEAD
+  /*<<<<<<< HEAD
  Observation(string markerId, Map* map, double bearing, double variance, double value=1) :
   bearing(0) {
-=======
+  =======*/
   /*Observation(string markerId, Map* map, double bearing, double variance) :
   bearing(0), bearingLeft(InvalidBearing), bearingRight(InvalidBearing) {
     
@@ -32,7 +32,7 @@ public:
   }
   */
   
- Observation(string markerId, Map* map, /*double bearing,*/ double variance, double bearingLeft = InvalidBearing, double bearingRight = InvalidBearing) :
+ Observation(string markerId, Map* map, double variance, double bearingLeft = InvalidBearing, double bearingRight = InvalidBearing) :
   bearing(0) {
     // for DEBUG info TODO delete
     printInfo = false;
@@ -42,22 +42,18 @@ public:
     this->variance = variance;
     this->bearingLeft = bearingLeft; 
     this->bearingRight = bearingRight;
-    cout << "new " ; 
-    print();
->>>>>>> master
+    calculateValue();
+    //print();
   }
+
+  // TODO : test this with the first version of blob processing where used blobs were erased on the fly and causing free() invalid pointer error.
+  //~Observation(){}
   
   double calculateLikelihoodForPosition(Position) const;
   
-<<<<<<< HEAD
-  double getBearing() const {
-    return bearing;
-  }
-=======
   double getBearing() const { return bearing; }
   double getBearingLeft() const { return bearingLeft; } 
   double getBearingRight() const { return bearingRight; }
->>>>>>> master
   
   string getMarkerId() const{
     return markerId;
@@ -67,43 +63,38 @@ public:
     this->map = map;
   }
 
-<<<<<<< HEAD
+
   double getValue() const { return value; }
   void setValue(double value) {
     this->value = value; 
   }
-=======
+
   void print() const {
     cout << "Observation " << markerId 
 	 << " bearing for left: " << bearingLeft 
       //<< "\tcenter: " << bearing 
-	 << "\tright" << bearingRight << endl;  
+	 << "\tright: " << bearingRight 
+	 << "\tvalue: " << value << endl;  
   } 
   
   const static double InvalidBearing = -M_PI * 3;
 
   // for printing DEBUG info for a single particle TODO delete
   mutable bool printInfo;
->>>>>>> master
   
 private:
   
   double calculateLikelihoodForMarkerAndPosition(MapMarker marker, Position position) const;
+  void calculateValue();
   
   bool isWallBlocking(MapMarker marker, Position position) const; 
   bool get_line_intersection(double,double,double,double,double,double,double,double,double*,double*) const;
   
   Map * map;
   string markerId;
-<<<<<<< HEAD
-  double bearing;
-  double variance;
   double value;
-=======
   double bearing, bearingLeft, bearingRight;
   double variance;
-
->>>>>>> master
 };
 
 #endif /* OBSERVATION_H_ */

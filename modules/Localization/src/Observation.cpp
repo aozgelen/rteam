@@ -115,6 +115,35 @@ double Observation::calculateLikelihoodForMarkerAndPosition(MapMarker marker, Po
   return expectation;
 }
 
+void Observation::calculateValue() {
+  int numberOfBlobs = 1;
+  string mark = markerId;
+  while ( mark.find("/") != string::npos ){
+    mark.replace(0, mark.find("/")+1, ""); 
+    numberOfBlobs++; 
+  }
+  switch( numberOfBlobs ) {
+  case 1: 
+    if ( bearingRight == InvalidBearing || bearingLeft == InvalidBearing ) 
+      value = 0.45; 
+    else
+      value = 0.65; 
+    break; 
+  case 2: 
+    if ( bearingRight == InvalidBearing || bearingLeft == InvalidBearing ) 
+      value = 0.55; 
+    else
+      value = 0.75; 
+    break; 
+  case 3: 
+    if ( bearingRight == InvalidBearing || bearingLeft == InvalidBearing ) 
+      value = 0.85; 
+    else
+      value = 1; 
+    break;
+  }
+}
+
 bool Observation::isWallBlocking(MapMarker marker, Position position) const{
   double mx = marker.getX(); 
   double my = marker.getY(); 

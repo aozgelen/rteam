@@ -46,7 +46,7 @@ public:
   
   double probability;
   double normalizedProbability;
-  const static double conservationRatio = .7;
+  const static double conservationRatio = .75;
 
   // DEBUG info TODO delete
   bool selected; 

@@ -45,7 +45,6 @@ void VisualDebugger::keyboardSpecial(int key, int x, int y){
     if ( keyboardCtrl == KEY_CTRL_STEP) 
       itl->move(Position(10, 0, 0));
     if ( keyboardCtrl == KEY_CTRL_CONT) {
-      // need to set something here for moving particles
       itl->setSpeed(10, 0, 0);
     }
   }
@@ -60,18 +59,26 @@ void VisualDebugger::keyboardSpecial(int key, int x, int y){
   if (key == GLUT_KEY_LEFT){
     robot->setOpMode(MANUAL);
     robot->resetPathInfo(); 
-    if ( keyboardCtrl == KEY_CTRL_STEP) 
+    if ( keyboardCtrl == KEY_CTRL_STEP) {
+      robot->stop(); 
       itl->move(Position(0, 0, Utils::toRadians(22.5))); 
-    if ( keyboardCtrl == KEY_CTRL_CONT) 
+    }
+    if ( keyboardCtrl == KEY_CTRL_CONT) {
+      robot->stop(); 
       itl->move(Position(0, 0, Utils::toRadians(22.5))); 
+    }
   }
   if (key == GLUT_KEY_RIGHT){
     robot->setOpMode(MANUAL);
     robot->resetPathInfo(); 
-    if ( keyboardCtrl == KEY_CTRL_STEP) 
+    if ( keyboardCtrl == KEY_CTRL_STEP) {
+      robot->stop(); 
       itl->move(Position(0, 0, Utils::toRadians(-22.5))); 
-    if ( keyboardCtrl == KEY_CTRL_CONT) 
+    }
+    if ( keyboardCtrl == KEY_CTRL_CONT) {
+      robot->stop(); 
       itl->move(Position(0, 0, Utils::toRadians(-22.5))); 
+    }
   }
 }
 

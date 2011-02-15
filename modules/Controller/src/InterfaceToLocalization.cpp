@@ -66,12 +66,12 @@ void InterfaceToLocalization::update() {
     updateObservations();
   }
 
-  if ( obs.size() > 0 ) 
-    displayObservationSummary();
+  //if ( obs.size() > 0 ) 
+  //  displayObservationSummary();
   
   Move lastMove = getLastMove();
-  if ( lastMove.getX() + lastMove.getY() + lastMove.getTheta() != 0 ) 
-    cout << "lastMove(" << lastMove.getX() << "," << lastMove.getY() << "," << lastMove.getTheta() << ")" << endl ;
+  //if ( lastMove.getX() + lastMove.getY() + lastMove.getTheta() != 0 ) 
+  //  cout << "lastMove(" << lastMove.getX() << "," << lastMove.getY() << "," << lastMove.getTheta() << ")" << endl ;
   if (obs.size() > 0 || lastMove.getX() + lastMove.getY() + lastMove.getTheta() != 0) {
     //cout << "applying filter" << endl;
     mc->updateFilter(lastMove, obs);
@@ -87,7 +87,7 @@ void InterfaceToLocalization::move(Position relativePosition) {
 
   // convert x, y (cm) to (m)
   destination = Position(relativePosition.getX() / 100.0,
-			 relativePosition.getY() / 100, 
+			 relativePosition.getY() / 100.0, 
 			 relativePosition.getTheta());
   //destinationReached = false;
 
@@ -102,6 +102,28 @@ void InterfaceToLocalization::move(Position relativePosition) {
        << (int) startPos.getTheta() << ")" << endl;
     
   p2d->GoTo(destination.getX(), destination.getY(), destination.getTheta());
+  robotMutex.unlock();
+}
+
+void InterfaceToLocalization::setSpeed(double xs, double ys, double ts){
+  robotMutex.lock();
+  cout << "setting speed(" << xs << ", " << ys << ", " << ts << ")" << endl;
+  resetDestinationInfo(); 
+  
+  if ( xs < 0 ) 
+    destination = Position(-1000, 0, 0); 
+  else if ( xs > 0 )
+    destination = Position(1000, 0, 0); 
+  else if ( ys < 0 ) 
+    destination = Position(0, -1000, 0); 
+  else if ( ys > 0 )
+    destination = Position(0, 1000, 0); 
+  else if ( ts < 0 ) 
+    destination = Position(0, 0, -M_PI * 100); 
+  else if ( ts > 0 )
+    destination = Position(0, 0, M_PI * 100); 
+  
+  p2d->SetSpeed(xs, ys, ts);
   robotMutex.unlock();
 }
 
@@ -251,9 +273,7 @@ double InterfaceToLocalization::getAngle(double x) {
   int xRes = 160;
   int halfXRes = 80;
   
-  cout << "calculating angle for " << x << endl;
   double angleLeftOfCenter = -1 * (x - halfXRes) / xRes * Utils::toRadians(fov);
-  cout << "angle: " << angleLeftOfCenter << endl;
   return angleLeftOfCenter;
 }
 
@@ -267,13 +287,6 @@ bool InterfaceToLocalization::positionEqual(Position p1, Position p2) {
   double abst = fabs(p1.getTheta() - p2.getTheta());
   
   return (absx == 0 && absy == 0 && Utils::toRadians(abst) == 0);
-}
-
-// to go backwards
-void InterfaceToLocalization::setSpeed(double xs, double ys, double ts){
-  robotMutex.lock();
-  p2d->SetSpeed(xs, ys, ts);
-  robotMutex.unlock();
 }
 
 
@@ -322,24 +335,53 @@ void InterfaceToLocalization::updateObservations() {
     }
   }
 
-  /*
+  bfp->NotFresh();
+
+  /* Process blobs: join overlapping blobs of the same color */
+ 
+  cout << "initial blobs: " << endl;
   printBlobs(P_blobs); 
   printBlobs(Y_blobs); 
   printBlobs(B_blobs); 
   printBlobs(G_blobs); 
   printBlobs(O_blobs); 
-  */
+    
+  cout << "\njoining blobs: " << endl;
+  int before, after; 
+  do {
+    before = P_blobs.size(); 
+    joinBlobs(P_blobs);
+    after = P_blobs.size(); 
+  } while ( after != before ) ;
+  do {
+    before = Y_blobs.size(); 
+    joinBlobs(Y_blobs);
+    after = Y_blobs.size(); 
+  } while ( after != before ) ;
+  do {
+    before = G_blobs.size(); 
+    joinBlobs(G_blobs);
+    after = G_blobs.size(); 
+  } while ( after != before ) ;
+  do {
+    before = B_blobs.size(); 
+    joinBlobs(B_blobs);
+    after = B_blobs.size(); 
+  } while ( after != before ) ;
+  do {
+    before = O_blobs.size(); 
+    joinBlobs(O_blobs);
+    after = O_blobs.size(); 
+  } while ( after != before ) ;
   
-  bfp->NotFresh();
-
-  /* Process blobs: join overlapping blobs of the same color */
-  /*
-    joinBlobs(P_blobs); 
-    joinBlobs(Y_blobs); 
-    joinBlobs(G_blobs); 
-    joinBlobs(B_blobs); 
-    joinBlobs(O_blobs); 
-  */
+  cout << "\nafter joining blobs: " << endl;
+  printBlobs(P_blobs); 
+  printBlobs(Y_blobs); 
+  printBlobs(B_blobs); 
+  printBlobs(G_blobs); 
+  printBlobs(O_blobs); 
+  
+  cout << endl << endl;
 
   /* Calling order of finding marker functions is crucial!. Everytime one of these are called it erases the color 
      blobs from observations. correct order of search should be room (3 colors), corner (2 colors) 
@@ -367,20 +409,22 @@ void InterfaceToLocalization::updateObservations() {
   if ( !BYO_markers.empty() ) 
     obs.insert(obs.begin(), BYO_markers.begin(), BYO_markers.end());
 
+  
   // corridor markers
-  vector<Observation> POY_markers = getRoomMarkers(P_blobs, O_blobs, Y_blobs, "p/o/y");
-  vector<Observation> YPO_markers = getRoomMarkers(Y_blobs, P_blobs, O_blobs, "y/p/o");
+  //vector<Observation> POY_markers = getRoomMarkers(P_blobs, O_blobs, Y_blobs, "p/o/y");
+  //vector<Observation> YPO_markers = getRoomMarkers(Y_blobs, P_blobs, O_blobs, "y/p/o");
   vector<Observation> PYO_markers = getRoomMarkers(P_blobs, Y_blobs, O_blobs, "p/y/o");
   vector<Observation> YOP_markers = getRoomMarkers(Y_blobs, O_blobs, P_blobs, "y/o/p");
 
-  if ( !POY_markers.empty() ) 
-    obs.insert(obs.begin(), POY_markers.begin(), POY_markers.end());
-  if ( !YPO_markers.empty() ) 
-    obs.insert(obs.begin(), YPO_markers.begin(), YPO_markers.end());
+  //if ( !POY_markers.empty() ) 
+  //   obs.insert(obs.begin(), POY_markers.begin(), POY_markers.end());
+  //if ( !YPO_markers.empty() ) 
+  //  obs.insert(obs.begin(), YPO_markers.begin(), YPO_markers.end());
   if ( !PYO_markers.empty() ) 
     obs.insert(obs.begin(), PYO_markers.begin(), PYO_markers.end());
   if ( !YOP_markers.empty() ) 
     obs.insert(obs.begin(), YOP_markers.begin(), YOP_markers.end());
+ 
 
   // corner markers
   vector<Observation> YB_markers = getCornerMarkers(Y_blobs, B_blobs, "y/b");
@@ -400,11 +444,17 @@ void InterfaceToLocalization::updateObservations() {
   // enterance markers
   vector<Observation> B_markers = getEnteranceMarkers(B_blobs, "b");
   vector<Observation> O_markers = getEnteranceMarkers(O_blobs, "o");
+  vector<Observation> P_markers = getEnteranceMarkers(P_blobs, "p");
+  vector<Observation> Y_markers = getEnteranceMarkers(Y_blobs, "y");
 
   if ( !B_markers.empty() ) 
     obs.insert(obs.begin(), B_markers.begin(), B_markers.end());  
   if ( !O_markers.empty() ) 
     obs.insert(obs.begin(), O_markers.begin(), O_markers.end());
+  if ( !P_markers.empty() ) 
+    obs.insert(obs.begin(), P_markers.begin(), P_markers.end());  
+  if ( !Y_markers.empty() ) 
+    obs.insert(obs.begin(), Y_markers.begin(), Y_markers.end());  
 
   // G_markers blobs
   vector<Observation> G_markers = findGreenObjects(G_blobs, "g");
@@ -414,12 +464,10 @@ void InterfaceToLocalization::updateObservations() {
     foundItem = true ; 
   }
 
-  if ( ITL_DEBUG )
-    displayObservationSummary();
-
-  //cout << "unlocking robotMutex" << endl; 
   robotMutex.unlock();
-  //cout << "leaving ITL" << endl; 
+
+  //if ( ITL_DEBUG )
+  displayObservationSummary();
 }
 
 // this function should get the values for the colors from the player colors file. Currently it is hard coded
@@ -562,17 +610,17 @@ vector<Observation> InterfaceToLocalization::getCornerMarkers(vector<observation
 	double bottomW = static_cast<double>(bottom.Right() - bottom.Left()); 
 	double eps = 0.5;
 	if (blobOnTopOf(top, bottom) && (bottom.Top() - top.Bottom() < ( topL + bottomL )/2 )) {
-	  cout << "Corner blob found" << endl;
+	  //cout << "Corner blob found" << endl;
 	  int avgLeft = ( top.Left() + bottom.Left() ) / 2 ; 
 	  int avgRight = ( top.Right() + bottom.Right() ) / 2 ; 
 	  //int avgCenter = ( avgLeft + avgRight ) / 2 ;
-	  cout << "avgLeft: " << avgLeft << ", avgRight: " << avgRight << /*", avgCenter: " << avgCenter << */endl;
+	  //cout << "avgLeft: " << avgLeft << ", avgRight: " << avgRight << /*", avgCenter: " << avgCenter << */endl;
 	  
 	  //double angleCenter = getAngle(avgCenter); 
 	  double angleLeft, angleRight ;
 	  ( avgLeft > 5 ) ? angleLeft = getAngle(avgLeft) : angleLeft = Observation::InvalidBearing ;
 	  ( avgRight < 155 ) ? angleRight = getAngle(avgRight) : angleRight = Observation::InvalidBearing ;
-	  cout << "angleLeft: " << angleLeft << ", angleRight: " << angleRight << /*", avgCenter: " << angleCenter <<*/ endl;
+	  //cout << "angleLeft: " << angleLeft << ", angleRight: " << angleRight << /*", avgCenter: " << angleCenter <<*/ endl;
 	  Observation observation = Observation(id, 
 						map,
 						//angleCenter,
@@ -664,17 +712,6 @@ vector<Observation> InterfaceToLocalization::findGreenObjects(vector<observation
   return ob;
 }
 
-<<<<<<< HEAD
-bool InterfaceToLocalization::blobOnTopOf(player_blobfinder_blob top,
-					  player_blobfinder_blob bottom) {
-  return (top.left < bottom.right && 
-	  top.right > bottom.left && 
-	  top.bottom < bottom.top + 3 && 
-	  top.bottom + 50 > bottom.top);
-}
-=======
->>>>>>> master
-
 bool InterfaceToLocalization::blobOnTopOf(observationBlob top,
 					  observationBlob bottom) {
   return (top.Left() < bottom.Right() && top.Right() > bottom.Left() && top.Bottom()
@@ -691,53 +728,80 @@ void InterfaceToLocalization::printBlobs(vector<observationBlob>& blobs){
   }
 }
 
-/*
-bool isUsable( vector<observationBlob>& blob ) { 
-  vector<observationBlob>::iterator iter; 
-  for ( iter = blob.begin() ; iter != blob.end() ; iter++ )
-    if ( !iter->Used() ) 
-      return true; 
-  return false;
-}
-*/
-
-// Fix this
-/*void InterfaceToLocalization::joinBlobs(vector<player_blobfinder_blob>& blobs){
-  vector<player_blobfinder_blob> newBlobs = blobs, tempBlobs;
-  bool needProcessing = true ;
-  while ( needProcessing ) {
-    needProcessing = false; 
-    for( vector<player_blobfinder_blob>::iterator iter1 = newBlobs.begin(); iter1 != newBlobs.end(); iter1++ )
-      for ( vector<player_blobfinder_blob>::iterator iter2 = iter1 + 1; iter2 != newBlobs.end(); iter2++ ){
-	if ( isOverlapping( *iter1, *iter2 ) ){
-	  // form new blob 
-	  int nleft = static_cast<int>( PlayerCc::min( iter1->left, iter2->left )) ; 
-	  int nright = static_cast<int>( PlayerCc::max( iter1->right, iter2->right )); 
-	  int ntop = static_cast<int>( PlayerCc::min( iter1->top, iter2->top )); 
-	  int nbottom = static_cast<int>( PlayerCc::max( iter1->bottom, iter2->bottom ));
-	  int nx = (nright + nleft)/2 ;
-	  int ny = (ntop + nbottom)/2 ;
-	  int narea = ( nright - nleft ) * ( nbottom - ntop );
-	  blobfinder_blob nb(static_cast<int>(iter1->id), static_cast<int>(iter1->color), 
-			     narea, nx, ny, nleft, nright, ntop, nbottom, iter1->range);
-	  // add to tempBlobs 
-	  tempBlobs.push_back(nb);
-	  needProcessing = true ; 
+void InterfaceToLocalization::joinBlobs(vector<observationBlob>& blobs){
+  if ( !blobs.empty() ) {
+    typedef vector<vector<observationBlob> > group_vector;
+    group_vector blobGroup; 
+    vector<observationBlob> newBlobs;
+    
+    // classify blobs together that are overlapping each other
+    vector<observationBlob>::iterator iter;
+    for ( iter = blobs.begin() ; iter != blobs.end() ; iter++ ) {
+      if ( blobGroup.empty() ) {
+	vector<observationBlob> t ; 
+	t.push_back(*iter); 
+	blobGroup.push_back(t); 
+      }
+      else {
+	bool belongs = false; 
+	group_vector::iterator iter2; 
+	for ( iter2 = blobGroup.begin() ; iter2 != blobGroup.end() ; iter2++ ){
+	  vector<observationBlob> tv = *iter2;
+	  vector<observationBlob>::iterator iter3; 
+	  for ( iter3 = tv.begin(); iter3 != tv.end() ; iter3++ ){
+	    if ( isOverlapping( *iter, *iter3 ) ){
+	      belongs = true; 
+	      iter2->push_back(*iter);
+	      break ; 
+	    }
+	  }
+	  if ( belongs )
+	    break ; 
+	}
+	
+	// create new blobGroup if the blob doesn't overlap with existing blobs belonging to any group.
+	if ( !belongs ) {
+	  vector<observationBlob> t2 ; 
+	  t2.push_back(*iter); 
+	  blobGroup.push_back(t2); 
 	}
       }
-    newBlobs = tempBlobs;
+    }
+  
+    // join the blobs that belong to the same group
+    group_vector::iterator it ; 
+    for ( it = blobGroup.begin() ; it != blobGroup.end() ; it++ ){
+      vector<observationBlob> group = *it;
+      if ( group.size() > 1 ) {
+	vector<observationBlob>::iterator it2;
+	int minLeft = 1000, maxRight = 0, minTop = 1000, maxBottom = 0; 
+	for ( it2 = group.begin(); it2 != group.end(); it2++ ) {
+	  if ( it2->Left() < minLeft ) 
+	    minLeft = it2->Left(); 
+	  if ( it2->Right() > maxRight ) 
+	    maxRight = it2->Right(); 
+	  if ( it2->Top() < minTop ) 
+	    minTop = it2->Top(); 
+	  if ( it2->Bottom() > maxBottom )
+	    maxBottom = it2->Bottom();
+	}
+	observationBlob nb(static_cast<int>(group.front().Color()), minLeft, maxRight, minTop, maxBottom, getAngle((minLeft + maxRight) / 2));
+	cout << "new " ; 
+	nb.print();
+	newBlobs.push_back(nb); 
+      }
+      else {
+	newBlobs.push_back(group.front()); 
+      }
+    }
+    
+    blobs = newBlobs;
   }
-  blobs = newBlobs; 
-  }*/
+}
 
 bool InterfaceToLocalization::isOverlapping(observationBlob b1, observationBlob b2 ){
   bool overlap = false; 
-  // set the epsilon to be the %35 of the average height and width of these blobs.
-  double hEps = ( static_cast<double>((b1.Bottom() - b1.Top()) + (b2.Bottom() - b2.Top())) / 2) * 0.35;
-  double lEps = ( static_cast<double>((b1.Right() - b1.Left()) + (b2.Right() - b2.Left())) / 2) * 0.35; 
-  
-  /* For cases: 
-     
+  /* For cases:      
      1.
      b1
      ----
@@ -745,7 +809,10 @@ bool InterfaceToLocalization::isOverlapping(observationBlob b1, observationBlob 
      --|- |   
        ----
          b2
-
+  */
+  if ( b2.Top() <= b1.Bottom()+1 && b2.Left() <= b1.Right()+1 && b1.Left() <= b2.Right()) 
+    overlap = true; 
+  /*
      2.
          b1
        ----
@@ -753,7 +820,10 @@ bool InterfaceToLocalization::isOverlapping(observationBlob b1, observationBlob 
      | -|--
      ----
      b2
-
+  */
+  if ( b2.Top() <= b1.Bottom()+1 && b1.Left() <= b2.Right()+1 && b2.Left() <= b1.Right() ) 
+    overlap = true; 
+  /*
      3.
      b2
      ----
@@ -761,7 +831,10 @@ bool InterfaceToLocalization::isOverlapping(observationBlob b1, observationBlob 
      --|- |   
        ----
          b1
-
+  */
+  if ( b1.Top() <= b2.Bottom()+1 && b1.Left() <= b2.Right()+1 && b2.Left() <= b1.Right() )
+    overlap = true; 
+  /*
      4.
          b2
        ----
@@ -770,20 +843,13 @@ bool InterfaceToLocalization::isOverlapping(observationBlob b1, observationBlob 
      ----
      b1
   */
-  if ( b2.Top() < b1.Bottom() - hEps && b2.Left() + lEps < b1.Right() ) 
+  if ( b1.Top() <= b2.Bottom()+1 && b2.Left() <= b1.Right()+1 && b1.Left() <= b2.Right() )
     overlap = true; 
-  if ( b2.Top() < b1.Bottom() - hEps && b1.Left() + lEps < b2.Right() ) 
-    overlap = true; 
-  if ( b1.Top() < b2.Bottom() - hEps && b1.Left() + lEps < b2.Right() )
-    overlap = true; 
-  if ( b1.Top() < b2.Bottom() - hEps && b2.Left() + lEps < b1.Right() )
-    overlap = true; 
+
   return overlap;
 }
 
 void InterfaceToLocalization::displayObservationSummary(){
-  string label = "\tInterfaceToLocalization::displayObservationSummary()> " ;
-  
   if ( !obs.empty() ){
     cout << "************************* Observation Summary *************************** " << endl; 
     cout << "Confidence: " << getConfidence() << endl;
@@ -831,11 +897,5 @@ void InterfaceToLocalization::displayObservationSummary(){
 	cout << i->getMarkerId() << " " ; 
       cout << endl;
     }
-    
-    //if ( !obs.empty() )
-    //cout << endl;
-  }
-  else{
-    //cout << label << "No observations are available at this time!." << endl;
   }
 }

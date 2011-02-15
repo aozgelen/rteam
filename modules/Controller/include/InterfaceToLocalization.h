@@ -121,7 +121,7 @@ protected:
   bool blobOnTopOf(observationBlob top, observationBlob bottom);
 
   void displayObservationSummary();
-  //void joinBlobs(vector<observationBlob>&);
+  void joinBlobs(vector<observationBlob>&);
   bool isOverlapping( observationBlob, observationBlob );
 
   vector<Observation> getRoomMarkers( vector<observationBlob>& topBlobs, 

@@ -10,13 +10,15 @@ private:
   list<int> path; 
   double pathCost;
 
-  list<int>::iterator head;
+  //list<int>::iterator head;
   Node waypoint; 
   bool objectiveSet;
   bool pathCompleted;
 
   void smoothPath();
   Node getClosestNode(Node);
+
+  void printPath();
 public: 
   PathPlanner(Graph g, Node s, Node t): navGraph(g), source(s), target(t){}
   void calcPath(); 
@@ -31,7 +33,7 @@ public:
   
   Node getWaypoint() { 
     Node wp ; 
-    ( !pathEmpty() ) ? wp = navGraph.getNode(path.front()) : wp = target ; 
+    ( !pathEmpty() ) ? wp = navGraph.getNode(path.front()) : wp = target; 
     return wp; 
   } 
   bool isObjectiveSet() { return objectiveSet; }
